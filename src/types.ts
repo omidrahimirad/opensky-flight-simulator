@@ -1,0 +1,36 @@
+export type AircraftId = 'skylark' | 'horizon' | 'swift';
+
+export interface AircraftDefinition {
+  id: AircraftId;
+  name: string;
+  type: string;
+  tagline: string;
+  accent: number;
+  accentCss: string;
+  mass: number;
+  wingArea: number;
+  maxThrust: number;
+  drag: number;
+  stallSpeed: number;
+  rotateSpeed: number;
+  topSpeed: number;
+  range: number;
+  seats: number;
+  scale: number;
+  gearHeight: number;
+}
+
+export interface Settings {
+  sensitivity: number;
+  volume: number;
+}
+
+export type CameraMode = 'CHASE' | 'COCKPIT' | 'SIDE';
+
+export interface ControlState {
+  throttleDelta: number;
+  pitch: number;
+  roll: number;
+  yaw: number;
+  brake: boolean;
+}
