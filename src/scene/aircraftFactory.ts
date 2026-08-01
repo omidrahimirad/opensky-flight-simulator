@@ -76,7 +76,29 @@ function createFinGeometry(height: number, rootChord: number, tipChord: number, 
   shape.closePath();
   const geometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, steps: 1 });
   geometry.translate(0, 0, -thickness / 2);
-  geometry.rotateY(Math.PI / 2);
+  geometry.rotateY(-Math.PI / 2);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function createRudderGeometry(
+  height: number,
+  rootChord: number,
+  tipChord: number,
+  sweep: number,
+  thickness: number,
+): THREE.BufferGeometry {
+  const rootTrailing = rootChord / 2;
+  const tipTrailing = sweep + tipChord / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(rootTrailing - rootChord * 0.28, height * 0.07);
+  shape.lineTo(rootTrailing, height * 0.07);
+  shape.lineTo(tipTrailing, height * 0.92);
+  shape.lineTo(tipTrailing - tipChord * 0.62, height * 0.92);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, steps: 1 });
+  geometry.translate(0, 0, -thickness / 2);
+  geometry.rotateY(-Math.PI / 2);
   geometry.computeVertexNormals();
   return geometry;
 }
@@ -97,8 +119,8 @@ function addFuselage(group: THREE.Group, accent: THREE.Material, length: number,
   nose.scale.set(1, 0.9, 1.55);
   const noseAccent = mesh(new THREE.SphereGeometry(radius * 0.73, 14, 8), accent, [0, -radius * 0.24, -length / 2 - radius * 0.82]);
   noseAccent.scale.set(1, 0.58, 1.08);
-  const tailCone = mesh(new THREE.ConeGeometry(radius * 0.57, length * 0.28, 16), pearl, [0, 0.06, length / 2 + length * 0.14], [
-    -Math.PI / 2,
+  const tailCone = mesh(new THREE.ConeGeometry(radius * 0.57, length * 0.18, 16), pearl, [0, 0.06, length / 2 + length * 0.09], [
+    Math.PI / 2,
     0,
     0,
   ]);
@@ -151,10 +173,34 @@ function addWindows(group: THREE.Group, count: number, length: number, radius: n
 }
 
 function addTail(group: THREE.Group, accent: THREE.Material, z: number, size: number): void {
-  const horizontal = mesh(createWingGeometry(size * 1.9, size * 0.72, size * 0.27, size * 0.24, 0.11), pearl, [0, 0.4, z]);
-  const fin = mesh(createFinGeometry(size * 1.55, size * 1.25, size * 0.36, size * 0.42, 0.16), accent, [0, 0.34, z + size * 0.1]);
-  const rudder = mesh(createFinGeometry(size * 1.32, size * 0.25, size * 0.16, size * 0.12, 0.17), pearl, [0, 0.5, z + size * 0.62]);
-  group.add(horizontal, fin, rudder);
+  const horizontal = mesh(createWingGeometry(size * 1.9, size * 0.82, size * 0.28, size * 0.3, 0.11), pearl, [0, 0.42, z]);
+  const elevator = mesh(
+    createWingGeometry(size * 1.72, size * 0.2, size * 0.12, size * 0.29, 0.125),
+    underside,
+    [0, 0.42, z + size * 0.37],
+  );
+  const fairing = mesh(
+    createFinGeometry(size * 0.6, size * 1.16, size * 0.36, size * 0.23, 0.3),
+    pearl,
+    [0, 0.16, z - size * 0.13],
+  );
+  const finHeight = size * 1.55;
+  const rootChord = size * 1.25;
+  const tipChord = size * 0.36;
+  const sweep = size * 0.46;
+  const fin = mesh(createFinGeometry(finHeight, rootChord, tipChord, sweep, 0.17), accent, [0, 0.32, z + size * 0.08]);
+  const rudder = mesh(
+    createRudderGeometry(finHeight, rootChord, tipChord, sweep, 0.185),
+    pearl,
+    [0, 0.32, z + size * 0.08],
+  );
+  const tailLight = mesh(
+    new THREE.SphereGeometry(size * 0.075, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xf7fbff }),
+    [0, 0.36 + finHeight, z + size * 0.08 + sweep],
+  );
+  tailLight.name = 'navigation-light';
+  group.add(horizontal, elevator, fairing, fin, rudder, tailLight);
 }
 
 function addWingDetails(group: THREE.Group, accent: THREE.Material, halfSpan: number, z: number): void {
@@ -252,7 +298,7 @@ function createSkylark(definition: AircraftDefinition, accent: THREE.Material): 
   const wing = mesh(createWingGeometry(5.05, 1.55, 0.62, 0.45, 0.17), pearl, [0, 0.08, -0.15]);
   group.add(wing);
   addWingDetails(group, accent, 5.05, -0.15);
-  addTail(group, accent, 3.45, 1.05);
+  addTail(group, accent, 4.05, 1.05);
   addTurbopropEngine(group, 0, 0.06, -3.68, 0.68, accent);
   addGear(
     group,
@@ -273,7 +319,7 @@ function createHorizon(definition: AircraftDefinition, accent: THREE.Material): 
   const wing = mesh(createWingGeometry(7.45, 2.1, 0.72, 0.95, 0.22), pearl, [0, 0.1, -0.15]);
   group.add(wing);
   addWingDetails(group, accent, 7.45, -0.15);
-  addTail(group, accent, 5.7, 1.48);
+  addTail(group, accent, 6.55, 1.48);
   addTurbopropEngine(group, -3.35, -0.02, -0.55, 1, accent);
   addTurbopropEngine(group, 3.35, -0.02, -0.55, 1, accent);
   addGear(
@@ -295,7 +341,7 @@ function createSwift(definition: AircraftDefinition, accent: THREE.Material): TH
   const wing = mesh(createWingGeometry(5.65, 2.28, 0.46, 1.5, 0.17), pearl, [0, 0, 0.18]);
   group.add(wing);
   addWingDetails(group, accent, 5.65, 0.18);
-  addTail(group, accent, 4.95, 1.28);
+  addTail(group, accent, 5.85, 1.28);
   addJetEngine(group, -1.18, 0.08, 3.48, 0.95);
   addJetEngine(group, 1.18, 0.08, 3.48, 0.95);
   addGear(
