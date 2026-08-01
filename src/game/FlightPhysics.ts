@@ -86,7 +86,7 @@ export class FlightPhysics {
     forward.normalize();
     const speed = Math.max(0, this.velocity.dot(forward));
     const steeringAuthority = THREE.MathUtils.clamp(0.32 + speed / 35, 0.32, 1);
-    this.yaw += controls.yaw * 0.62 * this.sensitivity * steeringAuthority * dt;
+    this.yaw -= controls.yaw * 0.62 * this.sensitivity * steeringAuthority * dt;
 
     if (speed > this.definition.rotateSpeed * 0.72) {
       this.pitch = THREE.MathUtils.clamp(
@@ -122,7 +122,7 @@ export class FlightPhysics {
     const authority = THREE.MathUtils.clamp(speed / this.definition.stallSpeed, 0.18, 1.2);
     const pitchRate = controls.pitch * 0.62 * this.sensitivity * authority;
     const rollRate = -controls.roll * 0.92 * this.sensitivity * authority;
-    const yawRate = controls.yaw * 0.32 * this.sensitivity * authority;
+    const yawRate = -controls.yaw * 0.32 * this.sensitivity * authority;
 
     const rotationDelta = new THREE.Quaternion().setFromEuler(
       new THREE.Euler(pitchRate * dt, yawRate * dt, rollRate * dt, 'XYZ'),
