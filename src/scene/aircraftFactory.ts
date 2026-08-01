@@ -1,24 +1,41 @@
 import * as THREE from 'three';
 import type { AircraftDefinition } from '../types';
 
-const pearl = new THREE.MeshStandardMaterial({
-  color: 0xf0f4f2,
-  roughness: 0.3,
-  metalness: 0.16,
+const pearl = new THREE.MeshPhysicalMaterial({
+  color: 0xf5f1e8,
+  roughness: 0.28,
+  metalness: 0.08,
+  clearcoat: 0.58,
+  clearcoatRoughness: 0.2,
   flatShading: true,
 });
-const underside = new THREE.MeshStandardMaterial({ color: 0xc8d2d5, roughness: 0.46, metalness: 0.12 });
+const underside = new THREE.MeshPhysicalMaterial({
+  color: 0xbac9ce,
+  roughness: 0.43,
+  metalness: 0.1,
+  clearcoat: 0.24,
+  clearcoatRoughness: 0.32,
+});
 const dark = new THREE.MeshStandardMaterial({ color: 0x101921, roughness: 0.25, metalness: 0.42 });
-const glass = new THREE.MeshStandardMaterial({
-  color: 0x15394c,
-  emissive: 0x071824,
-  emissiveIntensity: 0.45,
-  roughness: 0.13,
-  metalness: 0.48,
+const glass = new THREE.MeshPhysicalMaterial({
+  color: 0x123c52,
+  emissive: 0x061b29,
+  emissiveIntensity: 0.34,
+  roughness: 0.08,
+  metalness: 0.22,
+  clearcoat: 1,
+  clearcoatRoughness: 0.06,
 });
 const tire = new THREE.MeshStandardMaterial({ color: 0x0c0f12, roughness: 0.9 });
 const metal = new THREE.MeshStandardMaterial({ color: 0xaeb8c0, roughness: 0.24, metalness: 0.82 });
 const propellerMaterial = new THREE.MeshStandardMaterial({ color: 0x18242b, roughness: 0.25, metalness: 0.55 });
+const panelLine = new THREE.MeshStandardMaterial({
+  color: 0x667983,
+  roughness: 0.46,
+  metalness: 0.38,
+  transparent: true,
+  opacity: 0.42,
+});
 
 function mesh(
   geometry: THREE.BufferGeometry,
@@ -135,6 +152,11 @@ function addFuselage(group: THREE.Group, accent: THREE.Material, length: number,
   );
 
   group.add(body, belly, nose, noseAccent, tailCone, canopy, windshieldFrame);
+  [-0.2, 0.15, 0.34].forEach((offset) => {
+    const seam = mesh(new THREE.TorusGeometry(radius * 1.006, 0.012, 5, 24), panelLine, [0, 0, length * offset]);
+    seam.castShadow = false;
+    group.add(seam);
+  });
   addLivery(group, accent, length, radius);
   addWindows(group, windowCount, length, radius);
 }
@@ -358,10 +380,12 @@ function createSwift(definition: AircraftDefinition, accent: THREE.Material): TH
 }
 
 export function createAircraft(definition: AircraftDefinition): THREE.Group {
-  const accent = new THREE.MeshStandardMaterial({
+  const accent = new THREE.MeshPhysicalMaterial({
     color: definition.accent,
-    roughness: 0.28,
-    metalness: 0.27,
+    roughness: 0.24,
+    metalness: 0.2,
+    clearcoat: 0.64,
+    clearcoatRoughness: 0.18,
     flatShading: true,
   });
   const aircraft =

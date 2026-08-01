@@ -5,6 +5,7 @@ export interface ScenicWorld {
   destinationBeacon: THREE.Group;
   cloudLayer: THREE.Group;
   updateAmbientTraffic: (time: number) => void;
+  updateLighting: (position: THREE.Vector3) => void;
 }
 
 const standardMaterial = (color: number, roughness = 0.78, metalness = 0.04): THREE.MeshStandardMaterial =>
@@ -33,10 +34,10 @@ export function buildAirport(
   origin: AirportDefinition,
   destination: AirportDefinition,
 ): ScenicWorld {
-  scene.fog = new THREE.FogExp2(0xb3d4dd, 0.00011);
+  scene.fog = new THREE.FogExp2(0xa9c4c9, 0.000087);
   createSky(scene);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), standardMaterial(0x718b58, 0.96));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), standardMaterial(0x5f7d51, 0.96));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
@@ -49,31 +50,48 @@ export function buildAirport(
   const destinationBeacon = createDestinationBeacon(scene, destination);
   const updateAmbientTraffic = createAmbientTraffic(scene, origin, destination);
 
-  const hemisphere = new THREE.HemisphereLight(0xd8f3ff, 0x48523a, 2.45);
-  const sun = new THREE.DirectionalLight(0xffedc2, 3.35);
-  sun.position.set(origin.x - 900, 1100, origin.z + 500);
+  const hemisphere = new THREE.HemisphereLight(0xbfe9ff, 0x3e4935, 1.72);
+  const sunOffset = new THREE.Vector3(-1600, 925, 770);
+  const sun = new THREE.DirectionalLight(0xffd5a0, 4.05);
+  sun.position.set(origin.x + sunOffset.x, sunOffset.y, origin.z + sunOffset.z);
   sun.target.position.set(origin.x, 0, origin.z);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.left = -300;
-  sun.shadow.camera.right = 300;
-  sun.shadow.camera.top = 300;
-  sun.shadow.camera.bottom = -300;
-  sun.shadow.camera.far = 2400;
-  sun.shadow.bias = -0.00025;
-  scene.add(hemisphere, sun, sun.target);
-  return { destinationBeacon, cloudLayer, updateAmbientTraffic };
+  const shadowMapSize = matchMedia('(pointer: coarse)').matches ? 1024 : 2048;
+  sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
+  sun.shadow.camera.left = -360;
+  sun.shadow.camera.right = 360;
+  sun.shadow.camera.top = 360;
+  sun.shadow.camera.bottom = -360;
+  sun.shadow.camera.near = 120;
+  sun.shadow.camera.far = 2700;
+  sun.shadow.bias = -0.00018;
+  sun.shadow.normalBias = 0.035;
+
+  const rim = new THREE.DirectionalLight(0x7ab8e7, 0.72);
+  rim.position.set(origin.x + 900, 620, origin.z - 1100);
+  rim.target.position.set(origin.x, 80, origin.z);
+  scene.add(hemisphere, sun, sun.target, rim, rim.target);
+
+  const lightingAnchor = new THREE.Vector3(origin.x, 0, origin.z);
+  const updateLighting = (position: THREE.Vector3): void => {
+    if (lightingAnchor.distanceToSquared(position) < 324) return;
+    lightingAnchor.set(Math.round(position.x / 12) * 12, Math.max(0, Math.round(position.y / 12) * 12), Math.round(position.z / 12) * 12);
+    sun.position.copy(lightingAnchor).add(sunOffset);
+    sun.target.position.copy(lightingAnchor);
+  };
+  return { destinationBeacon, cloudLayer, updateAmbientTraffic, updateLighting };
 }
 
 function createSky(scene: THREE.Scene): void {
   const geometry = new THREE.SphereGeometry(11000, 24, 12);
-  const sunDirection = new THREE.Vector3(-4200, 2100, -6500).normalize();
+  const sunPosition = new THREE.Vector3(-5200, 3000, 2500);
+  const sunDirection = sunPosition.clone().normalize();
   const material = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     uniforms: {
-      topColor: { value: new THREE.Color(0x175c91) },
-      horizonColor: { value: new THREE.Color(0xaed6df) },
-      bottomColor: { value: new THREE.Color(0xf5c58c) },
+      topColor: { value: new THREE.Color(0x0b4779) },
+      horizonColor: { value: new THREE.Color(0x83bdc8) },
+      bottomColor: { value: new THREE.Color(0xffaa69) },
       sunDirection: { value: sunDirection },
     },
     vertexShader: `varying vec3 vPosition; void main() { vPosition = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
@@ -88,12 +106,16 @@ function createSky(scene: THREE.Scene): void {
         float h = direction.y;
         vec3 color = mix(horizonColor, topColor, smoothstep(0.0, 0.7, h));
         color = mix(bottomColor, color, smoothstep(-0.18, 0.12, h));
-        float horizonHaze = 1.0 - smoothstep(0.0, 0.28, abs(h));
-        color = mix(color, vec3(0.91, 0.78, 0.62), horizonHaze * 0.16);
-        float solarGlow = pow(max(dot(direction, sunDirection), 0.0), 18.0);
-        float solarCore = pow(max(dot(direction, sunDirection), 0.0), 420.0);
+        float horizonHaze = 1.0 - smoothstep(0.0, 0.3, abs(h));
+        color = mix(color, vec3(0.96, 0.68, 0.46), horizonHaze * 0.19);
+        float sunFacing = max(dot(direction, sunDirection), 0.0);
+        float sunsetBand = pow(sunFacing, 4.0) * (1.0 - smoothstep(0.28, 0.62, h));
+        color = mix(color, vec3(1.0, 0.36, 0.15), sunsetBand * 0.2);
+        float solarGlow = pow(sunFacing, 18.0);
+        float solarCore = pow(sunFacing, 420.0);
         color += vec3(1.0, 0.58, 0.24) * solarGlow * 0.38;
         color += vec3(1.0, 0.92, 0.66) * solarCore * 1.5;
+        color *= 0.98 + 0.04 * smoothstep(-0.1, 0.72, h);
         gl_FragColor = vec4(color, 1.0);
       }
     `,
@@ -104,7 +126,7 @@ function createSky(scene: THREE.Scene): void {
     new THREE.SphereGeometry(95, 16, 10),
     new THREE.MeshBasicMaterial({ color: 0xfff0bf, fog: false }),
   );
-  sun.position.set(-4200, 2100, -6500);
+  sun.position.copy(sunPosition);
   scene.add(sun);
 
   const halo = new THREE.Mesh(
@@ -114,6 +136,14 @@ function createSky(scene: THREE.Scene): void {
   halo.position.copy(sun.position).multiplyScalar(0.985);
   halo.lookAt(0, 0, 0);
   scene.add(halo);
+
+  const outerHalo = new THREE.Mesh(
+    new THREE.CircleGeometry(720, 32),
+    new THREE.MeshBasicMaterial({ color: 0xffa55f, transparent: true, opacity: 0.055, depthWrite: false, fog: false }),
+  );
+  outerHalo.position.copy(sun.position).multiplyScalar(0.982);
+  outerHalo.lookAt(0, 0, 0);
+  scene.add(outerHalo);
 }
 
 function createAirportComplex(scene: THREE.Scene, airport: AirportDefinition, isOrigin: boolean): void {
@@ -126,6 +156,12 @@ function createAirportComplex(scene: THREE.Scene, airport: AirportDefinition, is
 }
 
 function createRunway(parent: THREE.Group, airport: AirportDefinition, isOrigin: boolean): void {
+  const runwayBed = new THREE.Mesh(new THREE.PlaneGeometry(78, 1720), surfaceOverlayMaterial(0x555e5d, 0.94));
+  runwayBed.rotation.x = -Math.PI / 2;
+  runwayBed.position.y = 0.025;
+  runwayBed.receiveShadow = true;
+  parent.add(runwayBed);
+
   const runway = new THREE.Mesh(new THREE.PlaneGeometry(68, 1700), surfaceOverlayMaterial(0x242a2e, 0.9));
   runway.rotation.x = -Math.PI / 2;
   runway.position.y = 0.035;
@@ -139,6 +175,17 @@ function createRunway(parent: THREE.Group, airport: AirportDefinition, isOrigin:
     patch.rotation.z = (index % 5) * 0.035;
     patch.position.set(-23 + ((index * 19) % 48), 0.044, -710 + index * 83);
     parent.add(patch);
+  }
+
+  const rubberMaterial = decalMaterial(0x111619, 0.34);
+  for (const z of [-620, -575, -520, 520, 575, 620]) {
+    for (const x of [-7.5, -3.1, 3.1, 7.5]) {
+      const skid = new THREE.Mesh(new THREE.PlaneGeometry(0.7 + Math.abs(x) * 0.035, 48), rubberMaterial);
+      skid.rotation.x = -Math.PI / 2;
+      skid.rotation.z = (x > 0 ? 1 : -1) * 0.008;
+      skid.position.set(x, 0.067, z + x * 0.9);
+      parent.add(skid);
+    }
   }
 
   const shoulderMaterial = new THREE.MeshStandardMaterial({ color: 0xaeb8b8, roughness: 0.88 });
@@ -408,8 +455,11 @@ function createApronAndBuildings(parent: THREE.Group, airport: AirportDefinition
     const roof = new THREE.Mesh(new THREE.CylinderGeometry(31, 31, 60, 16, 1, false, 0, Math.PI), standardMaterial(0x5d6f77, 0.7));
     roof.rotation.z = Math.PI / 2;
     roof.position.y = height;
+    roof.castShadow = true;
+    roof.receiveShadow = true;
     const door = new THREE.Mesh(new THREE.PlaneGeometry(44, height - 3), standardMaterial(0x293b46, 0.55));
     door.position.set(0, height / 2, -25.01);
+    door.receiveShadow = true;
     const trim = new THREE.Mesh(new THREE.BoxGeometry(48, 1, 0.4), new THREE.MeshBasicMaterial({ color: accent }));
     trim.position.set(0, height - 1.5, -25.3);
     hangar.add(body, roof, door, trim);
@@ -432,8 +482,10 @@ function createApronAndBuildings(parent: THREE.Group, airport: AirportDefinition
   const terminalBody = new THREE.Mesh(new THREE.BoxGeometry(160, 19, 44), standardMaterial(0xd9dedf));
   terminalBody.position.y = 9.5;
   terminalBody.castShadow = true;
+  terminalBody.receiveShadow = true;
   const windows = new THREE.Mesh(new THREE.BoxGeometry(151, 6.5, 0.55), standardMaterial(0x1d4154, 0.2, 0.25));
   windows.position.set(0, 10.5, -22.1);
+  windows.receiveShadow = true;
   const terminalAccent = new THREE.Mesh(new THREE.BoxGeometry(160, 1.2, 1), new THREE.MeshBasicMaterial({ color: accent }));
   terminalAccent.position.set(0, 18, -22.2);
   terminal.add(terminalBody, windows, terminalAccent);
@@ -467,8 +519,10 @@ function createApronAndBuildings(parent: THREE.Group, airport: AirportDefinition
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 8.2, 55, 10), standardMaterial(0xc3cbcc));
   stem.position.y = 27.5;
   stem.castShadow = true;
+  stem.receiveShadow = true;
   const cab = new THREE.Mesh(new THREE.CylinderGeometry(13, 10, 8, 10), standardMaterial(0x183d50, 0.22, 0.2));
   cab.position.y = 58;
+  cab.castShadow = true;
   const roof = new THREE.Mesh(new THREE.CylinderGeometry(14, 14, 1.5, 10), new THREE.MeshBasicMaterial({ color: accent }));
   roof.position.y = 62.6;
   const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 10, 6), standardMaterial(0x98a5a8, 0.35, 0.6));
@@ -938,16 +992,23 @@ function createClouds(scene: THREE.Scene, origin: AirportDefinition, destination
   const midpointX = (origin.x + destination.x) / 2;
   const midpointZ = (origin.z + destination.z) / 2;
   const cloudMaterial = new THREE.MeshLambertMaterial({
-    color: 0xf7faf8,
+    color: 0xf1f5f0,
     transparent: true,
-    opacity: 0.8,
+    opacity: 0.86,
     depthWrite: false,
     flatShading: true,
   });
   const cloudShadowMaterial = new THREE.MeshLambertMaterial({
-    color: 0x8fa9b1,
+    color: 0x6f879d,
     transparent: true,
-    opacity: 0.18,
+    opacity: 0.28,
+    depthWrite: false,
+    flatShading: true,
+  });
+  const cloudHighlightMaterial = new THREE.MeshLambertMaterial({
+    color: 0xffd6b4,
+    transparent: true,
+    opacity: 0.25,
     depthWrite: false,
     flatShading: true,
   });
@@ -955,6 +1016,7 @@ function createClouds(scene: THREE.Scene, origin: AirportDefinition, destination
   const puffCount = 28 * 7;
   const cloudPieces = new THREE.InstancedMesh(cloudGeometry, cloudMaterial, puffCount);
   const cloudShadows = new THREE.InstancedMesh(cloudGeometry, cloudShadowMaterial, puffCount);
+  const cloudHighlights = new THREE.InstancedMesh(cloudGeometry, cloudHighlightMaterial, puffCount);
   const dummy = new THREE.Object3D();
   const clusterPosition = new THREE.Vector3();
   const localPosition = new THREE.Vector3();
@@ -981,16 +1043,24 @@ function createClouds(scene: THREE.Scene, origin: AirportDefinition, destination
       dummy.scale.set(cloudScale.x * 0.94, cloudScale.y * 0.62, cloudScale.z * 0.94);
       dummy.updateMatrix();
       cloudShadows.setMatrixAt(instance, dummy.matrix);
+      dummy.position.copy(clusterPosition).add(localPosition).add(new THREE.Vector3(-7, 10, 4));
+      dummy.scale.set(cloudScale.x * 0.7, cloudScale.y * 0.48, cloudScale.z * 0.7);
+      dummy.updateMatrix();
+      cloudHighlights.setMatrixAt(instance, dummy.matrix);
       instance += 1;
     }
   }
-  layer.add(cloudShadows, cloudPieces);
+  cloudShadows.renderOrder = 0;
+  cloudPieces.renderOrder = 1;
+  cloudHighlights.renderOrder = 2;
+  layer.add(cloudShadows, cloudPieces, cloudHighlights);
 
   const cirrusTexture = createCirrusTexture();
   const cirrusMaterial = new THREE.MeshBasicMaterial({
     map: cirrusTexture,
+    color: 0xffe2cf,
     transparent: true,
-    opacity: 0.34,
+    opacity: 0.38,
     depthWrite: false,
     side: THREE.DoubleSide,
     fog: false,

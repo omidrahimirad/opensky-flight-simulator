@@ -58,7 +58,7 @@ export class FlightGame {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.12;
 
     this.origin = getAirport(options.route.originId);
     this.destination = getAirport(options.route.destinationId);
@@ -151,6 +151,7 @@ export class FlightGame {
       this.world.destinationBeacon.position.y = Math.sin(time * 0.0015) * 7;
       this.world.cloudLayer.position.x = Math.sin(time * 0.00004) * 90;
       this.world.updateAmbientTraffic(time * 0.001);
+      this.world.updateLighting(this.physics.position);
       this.updateCamera(dt);
       this.audio.update(this.physics.throttle, this.physics.velocity.length());
       this.hudAccumulator += dt;
