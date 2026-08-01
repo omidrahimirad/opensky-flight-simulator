@@ -19,6 +19,11 @@ export const AIRCRAFT: AircraftDefinition[] = [
     seats: 4,
     scale: 0.78,
     gearHeight: 1.28,
+    cockpitView: {
+      position: [-0.16, 0.32, -2.48],
+      target: [-0.16, 0.3, -80],
+      fov: 70,
+    },
   },
   {
     id: 'horizon',
@@ -38,6 +43,11 @@ export const AIRCRAFT: AircraftDefinition[] = [
     seats: 24,
     scale: 1,
     gearHeight: 1.65,
+    cockpitView: {
+      position: [-0.24, 0.46, -5.52],
+      target: [-0.24, 0.4, -95],
+      fov: 67,
+    },
   },
   {
     id: 'swift',
@@ -57,6 +67,11 @@ export const AIRCRAFT: AircraftDefinition[] = [
     seats: 8,
     scale: 0.92,
     gearHeight: 1.45,
+    cockpitView: {
+      position: [-0.2, 0.38, -4.45],
+      target: [-0.2, 0.34, -100],
+      fov: 68,
+    },
   },
 ];
 

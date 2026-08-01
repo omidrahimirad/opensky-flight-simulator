@@ -154,14 +154,17 @@ export class FlightGame {
       this.cameraTarget.set(0, 1.15, -9).applyQuaternion(this.physics.orientation).add(this.physics.position);
       this.camera.fov = 58 + Math.min(8, this.physics.velocity.length() * 0.055);
     } else if (mode === 'COCKPIT') {
-      this.cameraPosition.set(0, 0.8, -3.1).applyQuaternion(this.physics.orientation).add(this.physics.position);
-      this.cameraTarget.set(0, 0.55, -90).applyQuaternion(this.physics.orientation).add(this.physics.position);
-      this.camera.fov = 67;
+      const cockpit = this.options.aircraft.cockpitView;
+      this.cameraPosition.set(...cockpit.position).applyQuaternion(this.physics.orientation).add(this.physics.position);
+      this.cameraTarget.set(...cockpit.target).applyQuaternion(this.physics.orientation).add(this.physics.position);
+      this.camera.fov = cockpit.fov;
     } else {
       this.cameraPosition.set(19, 5.2, 3.5).applyQuaternion(this.physics.orientation).add(this.physics.position);
       this.cameraTarget.set(0, 0.45, -1.5).applyQuaternion(this.physics.orientation).add(this.physics.position);
       this.camera.fov = 55;
     }
+    this.camera.near = mode === 'COCKPIT' ? 0.08 : 0.35;
+    this.options.container.classList.toggle('is-cockpit-view', mode === 'COCKPIT');
     this.camera.position.lerp(this.cameraPosition, smoothing);
     if (dt >= 1) this.cameraLookAt.copy(this.cameraTarget);
     else this.cameraLookAt.lerp(this.cameraTarget, smoothing);

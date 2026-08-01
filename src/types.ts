@@ -36,6 +36,11 @@ export interface AircraftDefinition {
   seats: number;
   scale: number;
   gearHeight: number;
+  cockpitView: {
+    position: [number, number, number];
+    target: [number, number, number];
+    fov: number;
+  };
 }
 
 export interface Settings {
