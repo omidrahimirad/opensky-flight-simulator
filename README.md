@@ -16,7 +16,8 @@ The project was visually inspired by the broad menu, hangar, and flight-view str
 - In-flight destination bearing, distance, direction pointer, approach state, and arrival detection
 - Persistent route, aircraft selection, and settings using `localStorage`
 - Two fully modeled airports per flight with runway lights, signs, taxiways, hangars, terminals, towers, and destination beacon
-- Enhanced procedural scenery with a gradient sky, sun, clouds, terrain variation, coastlines, mountains, city buildings, trees, and aircraft navigation lights
+- Enhanced procedural scenery with atmospheric sky scattering, sun glow, layered cumulus and cirrus clouds, horizon haze, terrain variation, coastlines, mountains, city buildings, and trees
+- Detailed airfields with weathered runway surfaces, runway numbers, touchdown and aiming-point markings, PAPI and approach lights, apron stands, jet bridges, ground vehicles, floodlights, fences, windsocks, and aircraft navigation lights
 - Simplified force-based flight model with gravity, thrust, lift, drag, stalls, ground steering, braking, takeoff, and landing
 - Chase, cockpit-style, and side cameras
 - Live speed, altitude, throttle, heading, vertical speed, and load-factor instruments
