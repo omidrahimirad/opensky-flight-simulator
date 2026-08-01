@@ -24,6 +24,8 @@ The project was visually inspired by the broad menu, hangar, and flight-view str
 - Live cockpit-style navigation radar with compass card, range rings, route bearing, airport/runway symbols, DME, ETA, adaptive range, and animated sweep
 - Responsive touch controls for phones and tablets
 - Procedural Web Audio engine tone with adjustable volume
+- Original dynamic ATC radio calls with departure, en-route, approach, and landing guidance
+- Animated bird flocks and lightweight passing air traffic around the route
 - Pause, restart, reset, and main-menu flow
 
 ## Controls

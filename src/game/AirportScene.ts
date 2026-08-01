@@ -4,6 +4,7 @@ import type { AirportDefinition } from '../types';
 export interface ScenicWorld {
   destinationBeacon: THREE.Group;
   cloudLayer: THREE.Group;
+  updateAmbientTraffic: (time: number) => void;
 }
 
 const standardMaterial = (color: number, roughness = 0.78, metalness = 0.04): THREE.MeshStandardMaterial =>
@@ -46,6 +47,7 @@ export function buildAirport(
   createLandscape(scene, origin, destination);
   const cloudLayer = createClouds(scene, origin, destination);
   const destinationBeacon = createDestinationBeacon(scene, destination);
+  const updateAmbientTraffic = createAmbientTraffic(scene, origin, destination);
 
   const hemisphere = new THREE.HemisphereLight(0xd8f3ff, 0x48523a, 2.45);
   const sun = new THREE.DirectionalLight(0xffedc2, 3.35);
@@ -60,7 +62,7 @@ export function buildAirport(
   sun.shadow.camera.far = 2400;
   sun.shadow.bias = -0.00025;
   scene.add(hemisphere, sun, sun.target);
-  return { destinationBeacon, cloudLayer };
+  return { destinationBeacon, cloudLayer, updateAmbientTraffic };
 }
 
 function createSky(scene: THREE.Scene): void {
@@ -810,6 +812,125 @@ function createMountainGeometry(segments: number, seed: number): THREE.BufferGeo
 function seededUnit(seed: number): number {
   const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
   return value - Math.floor(value);
+}
+
+function createAmbientTraffic(
+  scene: THREE.Scene,
+  origin: AirportDefinition,
+  destination: AirportDefinition,
+): (time: number) => void {
+  const ambient = new THREE.Group();
+  const mobileScene = matchMedia('(pointer: coarse)').matches;
+  const birdCount = mobileScene ? 22 : 36;
+  const birdGeometry = new THREE.BufferGeometry();
+  birdGeometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(
+      [
+        0, 0.24, -0.3, -1.8, 0, 0.72, -0.16, 0, 0.06,
+        0, 0.24, -0.3, 0.16, 0, 0.06, 1.8, 0, 0.72,
+      ],
+      3,
+    ),
+  );
+  birdGeometry.computeVertexNormals();
+  const birds = new THREE.InstancedMesh(
+    birdGeometry,
+    new THREE.MeshBasicMaterial({ color: 0x263436, side: THREE.DoubleSide, fog: true }),
+    birdCount,
+  );
+  const birdDummy = new THREE.Object3D();
+  const birdStates = Array.from({ length: birdCount }, (_, index) => {
+    const airport = index % 2 === 0 ? origin : destination;
+    const cluster = Math.floor(index / 6);
+    const centerAngle = seededUnit(cluster * 17 + 4) * Math.PI * 2;
+    const centerDistance = 520 + seededUnit(cluster * 23 + 8) * 980;
+    return {
+      centerX: airport.x + Math.cos(centerAngle) * centerDistance,
+      centerZ: airport.z + Math.sin(centerAngle) * centerDistance,
+      radius: 90 + seededUnit(index * 29 + 3) * 330,
+      altitude: 48 + seededUnit(index * 31 + 7) * 105,
+      phase: seededUnit(index * 37 + 5) * Math.PI * 2,
+      speed: 0.055 + seededUnit(index * 41 + 2) * 0.075,
+      scale: 1.1 + seededUnit(index * 43 + 9) * 1.1,
+    };
+  });
+  ambient.add(birds);
+
+  const trafficMaterial = standardMaterial(0xd9e1df, 0.58, 0.18);
+  const trafficAccentMaterials = [standardMaterial(0x4ca6c8, 0.42, 0.22), standardMaterial(0xe39a43, 0.42, 0.22), standardMaterial(0x7b8fc5, 0.42, 0.22)];
+  const trafficStates = Array.from({ length: mobileScene ? 2 : 3 }, (_, index) => {
+    const aircraft = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.82, 9.5, 9, 1), trafficMaterial);
+    body.rotation.x = Math.PI / 2;
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.58, 1.7, 9), trafficMaterial);
+    nose.rotation.x = -Math.PI / 2;
+    nose.position.z = -5.55;
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(13.5, 0.18, 2.2), trafficAccentMaterials[index]);
+    wing.position.z = 0.25;
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(4.3, 0.16, 1.15), trafficMaterial);
+    tail.position.set(0, 0.48, 3.65);
+    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.9, 2.5, 4), trafficAccentMaterials[index]);
+    fin.position.set(0, 1.2, 3.55);
+    fin.rotation.y = Math.PI / 4;
+    const redLight = new THREE.Mesh(new THREE.SphereGeometry(0.17, 6, 4), new THREE.MeshBasicMaterial({ color: 0xff3e49 }));
+    redLight.position.set(-6.75, 0, 0.25);
+    const greenLight = new THREE.Mesh(new THREE.SphereGeometry(0.17, 6, 4), new THREE.MeshBasicMaterial({ color: 0x4dffac }));
+    greenLight.position.set(6.75, 0, 0.25);
+    aircraft.add(body, nose, wing, tail, fin, redLight, greenLight);
+    aircraft.scale.setScalar(1.45 + index * 0.2);
+    ambient.add(aircraft);
+
+    const angle = 0.48 + index * 1.83;
+    const direction = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+    return {
+      aircraft,
+      redLight,
+      greenLight,
+      direction,
+      centerX: (origin.x + destination.x) / 2 + (index - 1) * 620,
+      centerZ: (origin.z + destination.z) / 2 + (index % 2 ? 880 : -720),
+      altitude: 520 + index * 190,
+      speed: 72 + index * 18,
+      offset: index * 3700,
+      yaw: Math.atan2(-direction.x, -direction.z),
+    };
+  });
+  scene.add(ambient);
+
+  return (time: number): void => {
+    birdStates.forEach((bird, index) => {
+      const angle = time * bird.speed + bird.phase;
+      birdDummy.position.set(
+        bird.centerX + Math.cos(angle) * bird.radius,
+        bird.altitude + Math.sin(time * 1.7 + bird.phase) * 5,
+        bird.centerZ + Math.sin(angle) * bird.radius,
+      );
+      birdDummy.rotation.set(
+        Math.sin(time * 2.1 + bird.phase) * 0.06,
+        Math.PI - angle,
+        Math.sin(time * 4.8 + bird.phase) * 0.16,
+      );
+      const flap = 0.72 + Math.abs(Math.sin(time * 6.4 + bird.phase)) * 0.42;
+      birdDummy.scale.set(bird.scale, bird.scale * flap, bird.scale);
+      birdDummy.updateMatrix();
+      birds.setMatrixAt(index, birdDummy.matrix);
+    });
+    birds.instanceMatrix.needsUpdate = true;
+
+    trafficStates.forEach((traffic, index) => {
+      const distance = ((time * traffic.speed + traffic.offset) % 12000) - 6000;
+      traffic.aircraft.position.set(
+        traffic.centerX + traffic.direction.x * distance,
+        traffic.altitude + Math.sin(time * 0.12 + index) * 28,
+        traffic.centerZ + traffic.direction.z * distance,
+      );
+      traffic.aircraft.rotation.set(0, traffic.yaw, Math.sin(time * 0.16 + index) * 0.035);
+      const lightsOn = Math.floor(time * 1.7 + index) % 2 === 0;
+      traffic.redLight.visible = lightsOn;
+      traffic.greenLight.visible = lightsOn;
+    });
+  };
 }
 
 function createClouds(scene: THREE.Scene, origin: AirportDefinition, destination: AirportDefinition): THREE.Group {

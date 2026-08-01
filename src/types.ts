@@ -57,3 +57,13 @@ export interface ControlState {
   yaw: number;
   brake: boolean;
 }
+
+export interface FlightRadioTelemetry {
+  elapsed: number;
+  altitude: number;
+  speed: number;
+  throttle: number;
+  onGround: boolean;
+  destinationDistance: number;
+  arrived: boolean;
+}

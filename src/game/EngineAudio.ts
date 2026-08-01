@@ -37,6 +37,26 @@ export class EngineAudio {
     this.volume = volume;
   }
 
+  playRadioSquelch(): void {
+    if (!this.context || this.volume <= 0.01) return;
+    const duration = 0.12;
+    const buffer = this.context.createBuffer(1, Math.floor(this.context.sampleRate * duration), this.context.sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let index = 0; index < samples.length; index += 1) samples[index] = Math.random() * 2 - 1;
+    const source = this.context.createBufferSource();
+    const filter = this.context.createBiquadFilter();
+    const gain = this.context.createGain();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1850;
+    filter.Q.value = 0.72;
+    gain.gain.setValueAtTime(0.0001, this.context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.volume * 0.055), this.context.currentTime + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, this.context.currentTime + duration);
+    source.buffer = buffer;
+    source.connect(filter).connect(gain).connect(this.context.destination);
+    source.start();
+  }
+
   destroy(): void {
     this.oscillator?.stop();
     void this.context?.close();

@@ -3,6 +3,7 @@ import { getAirport } from '../data/airports';
 import type { AircraftDefinition, AirportDefinition, CameraMode, RouteSelection, Settings } from '../types';
 import { animateAircraftParts, createAircraft, disposeObject } from '../scene/aircraftFactory';
 import { buildAirport, type ScenicWorld } from './AirportScene';
+import { AirTrafficRadio } from './AirTrafficRadio';
 import { EngineAudio } from './EngineAudio';
 import { FlightPhysics, type FlightTelemetry } from './FlightPhysics';
 import { InputController } from './InputController';
@@ -24,6 +25,7 @@ export class FlightGame {
   private readonly physics: FlightPhysics;
   private readonly input: InputController;
   private readonly audio: EngineAudio;
+  private readonly radio: AirTrafficRadio;
   private readonly origin: AirportDefinition;
   private readonly destination: AirportDefinition;
   private readonly world: ScenicWorld;
@@ -39,6 +41,7 @@ export class FlightGame {
   private arrived = false;
   private flightElapsed = 0;
   private touchdownSpeed = 0;
+  private radioMessageTimer = 0;
   private readonly cameraModes: CameraMode[] = ['CHASE', 'COCKPIT', 'SIDE'];
   private readonly keyHandler: (event: KeyboardEvent) => void;
 
@@ -64,6 +67,14 @@ export class FlightGame {
     this.physics = new FlightPhysics(options.aircraft, options.settings.sensitivity, this.origin);
     this.input = new InputController(options.container);
     this.audio = new EngineAudio(options.settings.volume);
+    this.radio = new AirTrafficRadio({
+      aircraftName: options.aircraft.name,
+      origin: this.origin,
+      destination: this.destination,
+      volume: options.settings.volume,
+      onTransmission: (message) => this.showRadioTransmission(message),
+      onSquelch: () => this.audio.playRadioSquelch(),
+    });
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(options.canvas);
@@ -85,6 +96,7 @@ export class FlightGame {
     this.paused = paused;
     this.lastTime = performance.now();
     if (!paused) this.audio.start();
+    this.radio.setPaused(paused);
   }
 
   reset(): void {
@@ -93,6 +105,7 @@ export class FlightGame {
     this.flightElapsed = 0;
     this.touchdownSpeed = 0;
     this.input.setMobileThrottle(0);
+    this.radio.reset();
     this.options.container.querySelector('#flight-complete')?.classList.remove('is-visible');
     this.syncModel();
     this.updateHud();
@@ -109,8 +122,10 @@ export class FlightGame {
     cancelAnimationFrame(this.raf);
     this.resizeObserver.disconnect();
     window.removeEventListener('keydown', this.keyHandler);
+    window.clearTimeout(this.radioMessageTimer);
     this.input.destroy();
     this.audio.destroy();
+    this.radio.destroy();
     disposeObject(this.scene);
     this.renderer.dispose();
   }
@@ -129,6 +144,7 @@ export class FlightGame {
       this.world.destinationBeacon.rotation.y += dt * 0.28;
       this.world.destinationBeacon.position.y = Math.sin(time * 0.0015) * 7;
       this.world.cloudLayer.position.x = Math.sin(time * 0.00004) * 90;
+      this.world.updateAmbientTraffic(time * 0.001);
       this.updateCamera(dt);
       this.audio.update(this.physics.throttle, this.physics.velocity.length());
       this.hudAccumulator += dt;
@@ -136,6 +152,19 @@ export class FlightGame {
         this.hudAccumulator = 0;
         this.updateHud();
       }
+      const radioTelemetry = this.physics.getTelemetry();
+      this.radio.update({
+        elapsed: this.flightElapsed,
+        altitude: radioTelemetry.altitude,
+        speed: radioTelemetry.speed,
+        throttle: radioTelemetry.throttle,
+        onGround: radioTelemetry.onGround,
+        destinationDistance: Math.hypot(
+          this.destination.x - this.physics.position.x,
+          this.destination.z - this.physics.position.z,
+        ),
+        arrived: this.arrived,
+      });
     }
     this.renderer.render(this.scene, this.camera);
     this.raf = requestAnimationFrame(this.animate);
@@ -233,6 +262,7 @@ export class FlightGame {
     this.setText('#complete-heading', `${String(Math.round(telemetry.heading)).padStart(3, '0')}°`);
     this.options.container.querySelector('#flight-complete')?.classList.add('is-visible');
     this.audio.update(0, 0);
+    this.radio.announceArrival(this.flightElapsed);
     this.setPaused(true);
   }
 
@@ -398,6 +428,15 @@ export class FlightGame {
     element.textContent = message;
     element.classList.add('is-visible');
     window.setTimeout(() => element.classList.remove('is-visible'), 1800);
+  }
+
+  private showRadioTransmission(message: string): void {
+    this.setText('#radio-text', message);
+    const element = this.options.container.querySelector<HTMLElement>('#radio-message');
+    if (!element) return;
+    element.classList.add('is-visible');
+    window.clearTimeout(this.radioMessageTimer);
+    this.radioMessageTimer = window.setTimeout(() => element.classList.remove('is-visible'), 5200);
   }
 
   private resize(): void {

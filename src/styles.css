@@ -1385,6 +1385,45 @@ kbd {
   transform: translate(-50%, 0);
 }
 
+.radio-message {
+  position: absolute;
+  z-index: 9;
+  top: 112px;
+  left: 50%;
+  width: min(520px, calc(100vw - 40px));
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+  transform: translate(-50%, -10px);
+  border: 1px solid rgba(92, 230, 195, 0.28);
+  background: rgba(3, 15, 20, 0.78);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(9px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.radio-message.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.radio-message span {
+  color: var(--teal);
+  font: 700 0.5rem var(--display);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.radio-message strong {
+  color: #d8e7e9;
+  font: 500 0.58rem/1.35 var(--display);
+  letter-spacing: 0.025em;
+}
+
 .mobile-controls {
   display: none;
 }
@@ -1648,6 +1687,12 @@ kbd {
 @media (pointer: coarse), (max-width: 760px) {
   .flight-shell {
     touch-action: none;
+  }
+
+  .radio-message {
+    top: max(106px, calc(env(safe-area-inset-top) + 98px));
+    width: min(470px, calc(100vw - 24px));
+    padding: 8px 10px;
   }
 
   .flight-complete {

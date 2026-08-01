@@ -428,6 +428,9 @@ class OpenSkyApp {
           </div>
           <div class="stall-warning" id="stall-warning">STALL · LOWER NOSE</div>
           <div class="flight-toast" id="flight-toast"></div>
+          <div class="radio-message" id="radio-message" role="status" aria-live="polite">
+            <span>ATC · LIVE</span><strong id="radio-text"></strong>
+          </div>
         </section>
 
         <section class="mobile-controls" aria-label="Touch flight controls">
