@@ -81,6 +81,7 @@ export class FlightPhysics {
   }
 
   private updateGround(dt: number, controls: ControlState): void {
+    if (controls.brake) this.throttle = Math.max(0, this.throttle - dt * 2.4);
     const forward = FORWARD.clone().applyQuaternion(this.orientation);
     forward.y = 0;
     forward.normalize();
@@ -102,7 +103,7 @@ export class FlightPhysics {
 
     const thrustAcceleration = (this.definition.maxThrust * this.throttle) / this.definition.mass;
     const rollingResistance = 0.16 + speed * speed * this.definition.drag * 0.00024;
-    const brakeAcceleration = controls.brake ? 8.5 : 0;
+    const brakeAcceleration = controls.brake ? 8.8 + Math.min(2.8, speed * 0.07) : 0;
     const nextSpeed = Math.max(0, speed + (thrustAcceleration - rollingResistance - brakeAcceleration) * dt);
     this.velocity.copy(FORWARD).applyQuaternion(this.orientation);
     this.velocity.y = 0;

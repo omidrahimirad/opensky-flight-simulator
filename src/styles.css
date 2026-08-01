@@ -1400,6 +1400,122 @@ kbd {
   opacity: 1;
 }
 
+.flight-complete {
+  position: fixed;
+  z-index: 55;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(49, 199, 183, 0.18), transparent 42%),
+    rgba(2, 8, 12, 0.82);
+  backdrop-filter: blur(14px);
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease, visibility 0.28s ease;
+}
+
+.flight-complete.is-visible {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.complete-card {
+  width: min(560px, 100%);
+  padding: 30px;
+  border: 1px solid rgba(91, 220, 199, 0.42);
+  background: linear-gradient(145deg, rgba(13, 35, 43, 0.98), rgba(6, 17, 25, 0.98));
+  box-shadow: 0 34px 110px rgba(0, 0, 0, 0.62), inset 0 1px rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+
+.complete-badge {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(99, 255, 212, 0.62);
+  border-radius: 50%;
+  background: rgba(51, 199, 183, 0.15);
+  color: #73efd6;
+  font: 700 1.65rem var(--display);
+  box-shadow: 0 0 32px rgba(51, 199, 183, 0.22);
+}
+
+.complete-card h2 {
+  margin: 3px 0 10px;
+  font: 700 clamp(2rem, 6vw, 3.2rem)/0.92 var(--display);
+  text-transform: uppercase;
+}
+
+.complete-card > p:nth-of-type(2) {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.complete-card > p strong {
+  color: #e8f9f6;
+}
+
+.complete-route {
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #d7e9e9;
+  font: 700 1.05rem var(--display);
+  letter-spacing: 0.14em;
+}
+
+.complete-route i {
+  color: var(--teal);
+  font-style: normal;
+}
+
+.complete-route strong {
+  color: var(--orange);
+}
+
+.complete-stats {
+  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line);
+  background: rgba(2, 10, 15, 0.45);
+}
+
+.complete-stats > div {
+  min-width: 0;
+  padding: 14px 9px;
+  display: grid;
+  gap: 6px;
+  border-right: 1px solid var(--line);
+}
+
+.complete-stats > div:last-child {
+  border-right: 0;
+}
+
+.complete-stats small {
+  color: #789099;
+  font: 600 0.48rem var(--display);
+  letter-spacing: 0.08em;
+}
+
+.complete-stats strong {
+  overflow: hidden;
+  color: #dff8f3;
+  font: 700 clamp(0.72rem, 2.4vw, 0.95rem) var(--display);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pause-card {
   padding: 28px;
 }
@@ -1532,6 +1648,20 @@ kbd {
 @media (pointer: coarse), (max-width: 760px) {
   .flight-shell {
     touch-action: none;
+  }
+
+  .flight-complete {
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  .complete-card {
+    padding: 22px 18px;
+  }
+
+  .complete-badge {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
   }
 
   .top-controls,

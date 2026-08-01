@@ -49,6 +49,11 @@ export class InputController {
     if (throttleInput && (matchMedia('(pointer: coarse)').matches || window.innerWidth <= 760)) {
       this.state.throttleDelta = THREEClamp((this.mobileThrottle - currentThrottle) * 6, -1, 1);
     }
+    if (this.state.brake) {
+      this.state.throttleDelta = -1;
+      this.mobileThrottle = 0;
+      if (throttleInput) throttleInput.value = '0';
+    }
     this.state.pitch = THREEClamp(this.state.pitch, -1, 1);
     this.state.roll = THREEClamp(this.state.roll, -1, 1);
     this.state.yaw = THREEClamp(this.state.yaw, -1, 1);

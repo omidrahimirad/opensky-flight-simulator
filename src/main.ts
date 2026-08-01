@@ -354,6 +354,11 @@ class OpenSkyApp {
     this.requireElement('#reset-button').addEventListener('click', () => this.flight?.reset());
     this.requireElement('#mobile-camera').addEventListener('click', () => this.flight?.changeCamera());
     this.requireElement('#mobile-reset').addEventListener('click', () => this.flight?.reset());
+    this.requireElement('#complete-restart').addEventListener('click', () => {
+      this.flight?.reset();
+      this.flight?.setPaused(false);
+    });
+    this.requireElement('#complete-main-menu').addEventListener('click', () => this.showMainMenu());
     this.flight.setPaused(false);
     window.setTimeout(() => this.root.querySelector('.flight-loading')?.classList.add('is-hidden'), 650);
   }
@@ -457,6 +462,22 @@ class OpenSkyApp {
             <button class="select-button" id="resume-button"><span>RESUME</span><b>CONTINUE →</b></button>
             <button class="pause-option" id="restart-button">Restart flight <b>↻</b></button>
             <button class="pause-option" id="main-menu-button">Main menu <b>⌂</b></button>
+          </section>
+        </div>
+        <div class="flight-complete" id="flight-complete" role="dialog" aria-modal="true" aria-labelledby="complete-title">
+          <section class="complete-card">
+            <div class="complete-badge" aria-hidden="true">✓</div>
+            <p class="eyebrow">Mission successful</p>
+            <h2 id="complete-title">Flight complete.</h2>
+            <p>You landed safely at <strong>${destination.name}</strong>.</p>
+            <div class="complete-route"><span>${origin.code}</span><i>→</i><strong>${destination.code}</strong></div>
+            <div class="complete-stats">
+              <div><small>FLIGHT TIME</small><strong id="complete-time">00:00</strong></div>
+              <div><small>TOUCHDOWN</small><strong id="complete-landing-speed">-- KM/H</strong></div>
+              <div><small>FINAL HDG</small><strong id="complete-heading">000°</strong></div>
+            </div>
+            <button class="select-button" id="complete-restart"><span>FLY AGAIN</span><b>RESTART →</b></button>
+            <button class="pause-option" id="complete-main-menu">Main menu <b>⌂</b></button>
           </section>
         </div>
         <div class="flight-loading">

@@ -13,12 +13,12 @@ The project was visually inspired by the broad menu, hangar, and flight-view str
   - Swift J4 light business jet
 - Refined low-poly aircraft with tapered wings, faceted fuselages, layered liveries, detailed cockpits, animated three-blade propellers, engine nacelles, navigation lights, and model-specific landing gear
 - Four selectable regional airports with persistent origin and destination planning
-- In-flight destination bearing, distance, direction pointer, approach state, and arrival detection
+- In-flight destination bearing, distance, direction pointer, approach state, destination-airfield arrival detection, and a persistent mission-success debrief
 - Persistent route, aircraft selection, and settings using `localStorage`
 - Two fully modeled airports per flight with runway lights, signs, taxiways, hangars, terminals, towers, and destination beacon
 - Enhanced procedural scenery with atmospheric sky scattering, sun glow, layered cumulus and cirrus clouds, horizon haze, terrain variation, coastlines, mountains, city buildings, and trees
 - Detailed airfields with weathered runway surfaces, runway numbers, touchdown and aiming-point markings, PAPI and approach lights, apron stands, jet bridges, ground vehicles, floodlights, fences, windsocks, and aircraft navigation lights
-- Simplified force-based flight model with gravity, thrust, lift, drag, stalls, ground steering, braking, takeoff, and landing
+- Simplified force-based flight model with gravity, thrust, lift, drag, stalls, ground steering, progressive wheel braking with automatic throttle reduction, takeoff, and landing
 - Chase, cockpit-style, and side cameras
 - Live speed, altitude, throttle, heading, vertical speed, and load-factor instruments
 - Live cockpit-style navigation radar with compass card, range rings, route bearing, airport/runway symbols, DME, ETA, adaptive range, and animated sweep

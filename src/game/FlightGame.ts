@@ -37,6 +37,8 @@ export class FlightGame {
   private cameraIndex = 0;
   private hudAccumulator = 0;
   private arrived = false;
+  private flightElapsed = 0;
+  private touchdownSpeed = 0;
   private readonly cameraModes: CameraMode[] = ['CHASE', 'COCKPIT', 'SIDE'];
   private readonly keyHandler: (event: KeyboardEvent) => void;
 
@@ -88,7 +90,10 @@ export class FlightGame {
   reset(): void {
     this.physics.reset();
     this.arrived = false;
+    this.flightElapsed = 0;
+    this.touchdownSpeed = 0;
     this.input.setMobileThrottle(0);
+    this.options.container.querySelector('#flight-complete')?.classList.remove('is-visible');
     this.syncModel();
     this.updateHud();
     this.showStatus(`Aircraft reset at ${this.origin.code}`);
@@ -115,7 +120,10 @@ export class FlightGame {
     this.lastTime = time;
     if (!this.paused) {
       const controls = this.input.update(this.physics.throttle);
+      const wasOnGround = this.physics.onGround;
       this.physics.update(dt, controls);
+      this.flightElapsed += dt;
+      if (!wasOnGround && this.physics.onGround) this.touchdownSpeed = this.physics.velocity.length();
       this.syncModel();
       animateAircraftParts(this.model, dt * (9 + this.physics.throttle * 64));
       this.world.destinationBeacon.rotation.y += dt * 0.28;
@@ -168,8 +176,12 @@ export class FlightGame {
     const destinationDistance = Math.hypot(deltaX, deltaZ);
     const destinationBearing = ((THREE.MathUtils.radToDeg(Math.atan2(deltaX, -deltaZ)) % 360) + 360) % 360;
     const relativeBearing = ((((destinationBearing - telemetry.heading) % 360) + 540) % 360) - 180;
+    const destinationHeading = THREE.MathUtils.degToRad(this.destination.heading);
+    const localX = -deltaX * Math.cos(destinationHeading) + deltaZ * Math.sin(destinationHeading);
+    const localZ = -deltaX * Math.sin(destinationHeading) - deltaZ * Math.cos(destinationHeading);
+    const insideDestinationAirfield = Math.abs(localX) < 230 && Math.abs(localZ) < 860;
     const wasArrived = this.arrived;
-    const justArrived = destinationDistance < 240 && telemetry.onGround && telemetry.speed < 10;
+    const justArrived = insideDestinationAirfield && telemetry.onGround && telemetry.speed < 14;
     this.arrived ||= justArrived;
     this.setText('#hud-speed', String(Math.round(telemetry.speed * 3.6)));
     this.setText('#hud-altitude', String(Math.round(telemetry.altitude)));
@@ -185,8 +197,10 @@ export class FlightGame {
     this.setText(
       '#flight-phase',
       this.arrived
-        ? 'ARRIVED'
-        : destinationDistance < 1700
+        ? 'COMPLETE'
+        : insideDestinationAirfield && telemetry.onGround
+          ? 'BRAKING'
+          : destinationDistance < 1700
           ? 'APPROACH'
           : telemetry.onGround
             ? telemetry.speed > 2
@@ -206,7 +220,17 @@ export class FlightGame {
     const routePanel = this.options.container.querySelector<HTMLElement>('.route-guidance');
     routePanel?.classList.toggle('is-near', destinationDistance < 1700);
     routePanel?.classList.toggle('is-arrived', this.arrived);
-    if (!wasArrived && this.arrived) this.showStatus(`Welcome to ${this.destination.name}`);
+    if (!wasArrived && this.arrived) this.completeFlight(telemetry);
+  }
+
+  private completeFlight(telemetry: FlightTelemetry): void {
+    const landingSpeed = this.touchdownSpeed || telemetry.speed;
+    this.setText('#complete-time', formatElapsedTime(this.flightElapsed));
+    this.setText('#complete-landing-speed', `${Math.round(landingSpeed * 3.6)} KM/H`);
+    this.setText('#complete-heading', `${String(Math.round(telemetry.heading)).padStart(3, '0')}°`);
+    this.options.container.querySelector('#flight-complete')?.classList.add('is-visible');
+    this.audio.update(0, 0);
+    this.setPaused(true);
   }
 
   private drawNavigationDisplay(telemetry: FlightTelemetry, destinationDistance: number, relativeBearing: number): void {
@@ -380,4 +404,10 @@ export class FlightGame {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
   }
+}
+
+function formatElapsedTime(seconds: number): string {
+  const totalSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(totalSeconds / 60);
+  return `${String(minutes).padStart(2, '0')}:${String(totalSeconds % 60).padStart(2, '0')}`;
 }
