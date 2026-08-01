@@ -4,7 +4,7 @@ import type { AircraftDefinition, AirportDefinition, CameraMode, RouteSelection,
 import { animateAircraftParts, createAircraft, disposeObject } from '../scene/aircraftFactory';
 import { buildAirport, type ScenicWorld } from './AirportScene';
 import { EngineAudio } from './EngineAudio';
-import { FlightPhysics } from './FlightPhysics';
+import { FlightPhysics, type FlightTelemetry } from './FlightPhysics';
 import { InputController } from './InputController';
 
 interface FlightGameOptions {
@@ -178,6 +178,7 @@ export class FlightGame {
     this.setText('#destination-code', this.destination.code);
     this.setText('#destination-distance', `${(destinationDistance / 1000).toFixed(1)} KM`);
     this.setText('#destination-bearing', `${String(Math.round(destinationBearing)).padStart(3, '0')}°`);
+    this.drawNavigationDisplay(telemetry, destinationDistance, relativeBearing);
     this.setText(
       '#flight-phase',
       this.arrived
@@ -203,6 +204,156 @@ export class FlightGame {
     routePanel?.classList.toggle('is-near', destinationDistance < 1700);
     routePanel?.classList.toggle('is-arrived', this.arrived);
     if (!wasArrived && this.arrived) this.showStatus(`Welcome to ${this.destination.name}`);
+  }
+
+  private drawNavigationDisplay(telemetry: FlightTelemetry, destinationDistance: number, relativeBearing: number): void {
+    const canvas = this.options.container.querySelector<HTMLCanvasElement>('#nav-radar');
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return;
+    const width = canvas.width;
+    const height = canvas.height;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const radius = Math.min(width, height) * 0.41;
+    const radarRangeKm = destinationDistance > 12000 ? 20 : destinationDistance > 6000 ? 10 : destinationDistance > 3000 ? 5 : destinationDistance > 1200 ? 2 : 1;
+    const radarRangeMeters = radarRangeKm * 1000;
+    const sweep = (performance.now() * 0.00048) % (Math.PI * 2);
+    context.clearRect(0, 0, width, height);
+
+    context.save();
+    context.beginPath();
+    context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    context.clip();
+    const background = context.createRadialGradient(centerX, centerY, 4, centerX, centerY, radius);
+    background.addColorStop(0, 'rgba(19, 76, 66, 0.55)');
+    background.addColorStop(0.66, 'rgba(5, 31, 31, 0.92)');
+    background.addColorStop(1, 'rgba(2, 14, 18, 0.98)');
+    context.fillStyle = background;
+    context.fillRect(0, 0, width, height);
+
+    context.strokeStyle = 'rgba(92, 230, 195, 0.2)';
+    context.lineWidth = 1;
+    [0.33, 0.66, 1].forEach((ring) => {
+      context.beginPath();
+      context.arc(centerX, centerY, radius * ring, 0, Math.PI * 2);
+      context.stroke();
+    });
+    for (let degrees = 0; degrees < 360; degrees += 30) {
+      const angle = THREE.MathUtils.degToRad(degrees);
+      context.beginPath();
+      context.moveTo(centerX, centerY);
+      context.lineTo(centerX + Math.sin(angle) * radius, centerY - Math.cos(angle) * radius);
+      context.stroke();
+    }
+
+    context.fillStyle = 'rgba(75, 234, 194, 0.13)';
+    context.beginPath();
+    context.moveTo(centerX, centerY);
+    context.arc(centerX, centerY, radius, sweep - 0.42, sweep + 0.02);
+    context.closePath();
+    context.fill();
+    context.strokeStyle = 'rgba(99, 255, 212, 0.64)';
+    context.beginPath();
+    context.moveTo(centerX, centerY);
+    context.lineTo(centerX + Math.cos(sweep) * radius, centerY + Math.sin(sweep) * radius);
+    context.stroke();
+
+    const waypointPosition = (airport: AirportDefinition): { x: number; y: number; distance: number; edge: boolean } => {
+      const deltaX = airport.x - this.physics.position.x;
+      const deltaZ = airport.z - this.physics.position.z;
+      const distance = Math.hypot(deltaX, deltaZ);
+      const bearing = ((THREE.MathUtils.radToDeg(Math.atan2(deltaX, -deltaZ)) % 360) + 360) % 360;
+      const relative = ((((bearing - telemetry.heading) % 360) + 540) % 360) - 180;
+      const angle = THREE.MathUtils.degToRad(relative);
+      const normalizedDistance = Math.min(0.92, distance / radarRangeMeters);
+      return {
+        x: centerX + Math.sin(angle) * radius * normalizedDistance,
+        y: centerY - Math.cos(angle) * radius * normalizedDistance,
+        distance,
+        edge: distance > radarRangeMeters,
+      };
+    };
+
+    const originPoint = waypointPosition(this.origin);
+    const destinationPoint = waypointPosition(this.destination);
+    context.setLineDash([5, 4]);
+    context.strokeStyle = 'rgba(247, 177, 64, 0.62)';
+    context.lineWidth = 1.5;
+    context.beginPath();
+    context.moveTo(centerX, centerY);
+    context.lineTo(destinationPoint.x, destinationPoint.y);
+    context.stroke();
+    context.setLineDash([]);
+
+    const drawAirport = (airport: AirportDefinition, point: ReturnType<typeof waypointPosition>, color: string): void => {
+      const runwayAngle = THREE.MathUtils.degToRad(airport.heading - telemetry.heading);
+      const runwayLength = point.edge ? 5 : 9;
+      context.save();
+      context.translate(point.x, point.y);
+      context.rotate(runwayAngle);
+      context.strokeStyle = color;
+      context.lineWidth = 2.3;
+      context.beginPath();
+      context.moveTo(0, -runwayLength);
+      context.lineTo(0, runwayLength);
+      context.stroke();
+      context.restore();
+      context.fillStyle = color;
+      context.font = '700 12px sans-serif';
+      context.textAlign = point.x > centerX ? 'right' : 'left';
+      context.fillText(airport.code, point.x + (point.x > centerX ? -6 : 6), point.y - 6);
+    };
+    if (originPoint.distance < radarRangeMeters * 1.1) drawAirport(this.origin, originPoint, 'rgba(119, 188, 202, 0.88)');
+    drawAirport(this.destination, destinationPoint, '#ffb548');
+
+    context.fillStyle = '#ecfbf7';
+    context.strokeStyle = '#ecfbf7';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(centerX, centerY - 10);
+    context.lineTo(centerX - 5, centerY + 6);
+    context.lineTo(centerX, centerY + 3);
+    context.lineTo(centerX + 5, centerY + 6);
+    context.closePath();
+    context.fill();
+    context.beginPath();
+    context.moveTo(centerX - 11, centerY + 1);
+    context.lineTo(centerX + 11, centerY + 1);
+    context.stroke();
+
+    context.fillStyle = 'rgba(218, 249, 242, 0.82)';
+    context.font = '600 10px sans-serif';
+    context.textAlign = 'center';
+    const compassLabels: Record<number, string> = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
+    for (let degrees = 0; degrees < 360; degrees += 30) {
+      const relative = THREE.MathUtils.degToRad(degrees - telemetry.heading);
+      const labelRadius = radius - 10;
+      const label = compassLabels[degrees] ?? String(degrees / 10).padStart(2, '0');
+      context.fillText(label, centerX + Math.sin(relative) * labelRadius, centerY - Math.cos(relative) * labelRadius + 3);
+    }
+    context.restore();
+
+    context.strokeStyle = 'rgba(117, 241, 211, 0.7)';
+    context.lineWidth = 1.5;
+    context.beginPath();
+    context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    context.stroke();
+    context.fillStyle = '#ffb548';
+    context.beginPath();
+    context.moveTo(centerX, centerY - radius - 2);
+    context.lineTo(centerX - 5, centerY - radius - 10);
+    context.lineTo(centerX + 5, centerY - radius - 10);
+    context.closePath();
+    context.fill();
+
+    const etaMinutes = telemetry.speed > 12 ? destinationDistance / telemetry.speed / 60 : Number.POSITIVE_INFINITY;
+    this.setText('#radar-range', `RNG ${radarRangeKm} KM`);
+    this.setText('#radar-dme', `DME ${(destinationDistance / 1000).toFixed(1)}`);
+    this.setText('#radar-eta', Number.isFinite(etaMinutes) ? `ETA ${Math.max(1, Math.round(etaMinutes))}M` : 'ETA --');
+    canvas.setAttribute(
+      'aria-label',
+      `${this.destination.code} navigation display, ${(destinationDistance / 1000).toFixed(1)} kilometers, ${Math.round(relativeBearing)} degrees relative bearing`,
+    );
   }
 
   private setText(selector: string, value: string): void {

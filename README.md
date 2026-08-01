@@ -21,6 +21,7 @@ The project was visually inspired by the broad menu, hangar, and flight-view str
 - Simplified force-based flight model with gravity, thrust, lift, drag, stalls, ground steering, braking, takeoff, and landing
 - Chase, cockpit-style, and side cameras
 - Live speed, altitude, throttle, heading, vertical speed, and load-factor instruments
+- Live cockpit-style navigation radar with compass card, range rings, route bearing, airport/runway symbols, DME, ETA, adaptive range, and animated sweep
 - Responsive touch controls for phones and tablets
 - Procedural Web Audio engine tone with adjustable volume
 - Pause, restart, reset, and main-menu flow

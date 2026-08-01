@@ -409,9 +409,13 @@ class OpenSkyApp {
           </div>
           <div class="hud-bottom">
             <div class="instrument-panel">
-              <div class="readout"><small>SPEED</small><strong id="hud-speed">0</strong><span>KM/H</span></div>
-              <div class="readout"><small>ALTITUDE</small><strong id="hud-altitude">0</strong><span>METERS</span></div>
-              <div class="heading-orb"><small>HDG</small><strong id="hud-heading">000</strong><span>°</span></div>
+              <div class="readout speed-readout"><small>SPEED</small><strong id="hud-speed">0</strong><span>KM/H</span></div>
+              <div class="readout altitude-readout"><small>ALTITUDE</small><strong id="hud-altitude">0</strong><span>METERS</span></div>
+              <div class="navigation-display">
+                <canvas id="nav-radar" width="220" height="220" role="img" aria-label="Live route navigation radar"></canvas>
+                <div class="nav-display-top"><span>NAV</span><b><small>HDG</small><strong id="hud-heading">000</strong>°</b></div>
+                <div class="nav-display-bottom"><span id="radar-range">RNG 10 KM</span><b id="radar-dme">DME 0.0</b><em id="radar-eta">ETA --</em></div>
+              </div>
               <div class="readout secondary"><small>VERTICAL</small><strong id="hud-vspeed">+0.0</strong><span>M/S</span></div>
               <div class="readout secondary"><small>LOAD</small><strong id="hud-gforce">1.0 G</strong><span>FORCE</span></div>
             </div>
