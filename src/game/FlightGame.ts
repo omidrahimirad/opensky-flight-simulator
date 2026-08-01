@@ -18,7 +18,7 @@ interface FlightGameOptions {
 
 export class FlightGame {
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(58, 1, 0.12, 22000);
+  private readonly camera = new THREE.PerspectiveCamera(58, 1, 0.35, 16000);
   private readonly renderer: THREE.WebGLRenderer;
   private readonly model: THREE.Group;
   private readonly physics: FlightPhysics;
@@ -29,6 +29,7 @@ export class FlightGame {
   private readonly world: ScenicWorld;
   private readonly resizeObserver: ResizeObserver;
   private readonly cameraTarget = new THREE.Vector3();
+  private readonly cameraLookAt = new THREE.Vector3();
   private readonly cameraPosition = new THREE.Vector3();
   private raf = 0;
   private lastTime = 0;
@@ -154,7 +155,9 @@ export class FlightGame {
       this.camera.fov = 55;
     }
     this.camera.position.lerp(this.cameraPosition, smoothing);
-    this.camera.lookAt(this.cameraTarget);
+    if (dt >= 1) this.cameraLookAt.copy(this.cameraTarget);
+    else this.cameraLookAt.lerp(this.cameraTarget, smoothing);
+    this.camera.lookAt(this.cameraLookAt);
     this.camera.updateProjectionMatrix();
   }
 
@@ -208,7 +211,7 @@ export class FlightGame {
 
   private drawNavigationDisplay(telemetry: FlightTelemetry, destinationDistance: number, relativeBearing: number): void {
     const canvas = this.options.container.querySelector<HTMLCanvasElement>('#nav-radar');
-    const context = canvas?.getContext('2d');
+    const context = canvas?.getContext('2d', { alpha: false });
     if (!canvas || !context) return;
     const width = canvas.width;
     const height = canvas.height;
@@ -218,7 +221,8 @@ export class FlightGame {
     const radarRangeKm = destinationDistance > 12000 ? 20 : destinationDistance > 6000 ? 10 : destinationDistance > 3000 ? 5 : destinationDistance > 1200 ? 2 : 1;
     const radarRangeMeters = radarRangeKm * 1000;
     const sweep = (performance.now() * 0.00048) % (Math.PI * 2);
-    context.clearRect(0, 0, width, height);
+    context.fillStyle = '#041218';
+    context.fillRect(0, 0, width, height);
 
     context.save();
     context.beginPath();

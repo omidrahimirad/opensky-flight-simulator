@@ -1208,8 +1208,11 @@ kbd {
   grid-template-columns: repeat(2, minmax(94px, 126px)) 174px repeat(2, minmax(86px, 108px));
   align-items: stretch;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(5, 17, 25, 0.73);
-  backdrop-filter: blur(12px);
+  isolation: isolate;
+  contain: layout paint;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  background: rgba(5, 17, 25, 0.94);
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.25);
 }
 
@@ -1259,6 +1262,8 @@ kbd {
   width: 124px;
   height: 124px;
   transform: translateX(-50%);
+  contain: strict;
+  backface-visibility: hidden;
 }
 
 .nav-display-top,

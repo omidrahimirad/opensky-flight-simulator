@@ -8,6 +8,24 @@ export interface ScenicWorld {
 
 const standardMaterial = (color: number, roughness = 0.78, metalness = 0.04): THREE.MeshStandardMaterial =>
   new THREE.MeshStandardMaterial({ color, roughness, metalness });
+const surfaceOverlayMaterial = (color: number, roughness = 0.9): THREE.MeshStandardMaterial =>
+  new THREE.MeshStandardMaterial({
+    color,
+    roughness,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+const decalMaterial = (color: number, opacity = 1): THREE.MeshBasicMaterial =>
+  new THREE.MeshBasicMaterial({
+    color,
+    transparent: opacity < 1,
+    opacity,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -6,
+    polygonOffsetUnits: -6,
+  });
 
 export function buildAirport(
   scene: THREE.Scene,
@@ -106,13 +124,13 @@ function createAirportComplex(scene: THREE.Scene, airport: AirportDefinition, is
 }
 
 function createRunway(parent: THREE.Group, airport: AirportDefinition, isOrigin: boolean): void {
-  const runway = new THREE.Mesh(new THREE.PlaneGeometry(68, 1700), standardMaterial(0x242a2e, 0.9));
+  const runway = new THREE.Mesh(new THREE.PlaneGeometry(68, 1700), surfaceOverlayMaterial(0x242a2e, 0.9));
   runway.rotation.x = -Math.PI / 2;
   runway.position.y = 0.035;
   runway.receiveShadow = true;
   parent.add(runway);
 
-  const patchMaterials = [standardMaterial(0x20272a, 0.94), standardMaterial(0x2b3133, 0.94), standardMaterial(0x252c2f, 0.94)];
+  const patchMaterials = [surfaceOverlayMaterial(0x20272a, 0.94), surfaceOverlayMaterial(0x2b3133, 0.94), surfaceOverlayMaterial(0x252c2f, 0.94)];
   for (let index = 0; index < 18; index += 1) {
     const patch = new THREE.Mesh(new THREE.PlaneGeometry(18 + (index % 4) * 8, 38 + (index % 3) * 22), patchMaterials[index % 3]);
     patch.rotation.x = -Math.PI / 2;
@@ -129,7 +147,7 @@ function createRunway(parent: THREE.Group, airport: AirportDefinition, isOrigin:
     parent.add(shoulder);
   });
 
-  const white = new THREE.MeshBasicMaterial({ color: 0xf2f3eb });
+  const white = decalMaterial(0xf2f3eb);
   for (let z = -735; z <= 735; z += 56) {
     const center = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 28), white);
     center.rotation.x = -Math.PI / 2;
@@ -238,7 +256,14 @@ function createRunwayNumber(parent: THREE.Group, label: string, z: number, rever
   texture.colorSpace = THREE.SRGBColorSpace;
   const marking = new THREE.Mesh(
     new THREE.PlaneGeometry(27, 34),
-    new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }),
+    new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -7,
+      polygonOffsetUnits: -7,
+    }),
   );
   marking.rotation.x = -Math.PI / 2;
   marking.rotation.z = reverse ? Math.PI : 0;
@@ -318,13 +343,13 @@ function createWindsock(parent: THREE.Group, accent: number): void {
 
 function createApronAndBuildings(parent: THREE.Group, airport: AirportDefinition, isOrigin: boolean): void {
   const accent = airport.accent;
-  const apron = new THREE.Mesh(new THREE.PlaneGeometry(420, 420), standardMaterial(0x767e7f, 0.86));
+  const apron = new THREE.Mesh(new THREE.PlaneGeometry(420, 420), surfaceOverlayMaterial(0x767e7f, 0.86));
   apron.rotation.x = -Math.PI / 2;
   apron.position.set(245, 0.025, 110);
   apron.receiveShadow = true;
   parent.add(apron);
 
-  const seamMaterial = new THREE.MeshBasicMaterial({ color: 0x4f595b, transparent: true, opacity: 0.65 });
+  const seamMaterial = decalMaterial(0x4f595b, 0.65);
   for (let offset = -160; offset <= 160; offset += 40) {
     const verticalSeam = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 400), seamMaterial);
     verticalSeam.rotation.x = -Math.PI / 2;
@@ -335,7 +360,7 @@ function createApronAndBuildings(parent: THREE.Group, airport: AirportDefinition
     parent.add(verticalSeam, horizontalSeam);
   }
 
-  const taxiway = new THREE.Mesh(new THREE.PlaneGeometry(44, 250), standardMaterial(0x444b4e, 0.9));
+  const taxiway = new THREE.Mesh(new THREE.PlaneGeometry(44, 250), surfaceOverlayMaterial(0x444b4e, 0.9));
   taxiway.rotation.x = -Math.PI / 2;
   taxiway.rotation.z = Math.PI / 2;
   taxiway.position.set(112, 0.04, 240);
@@ -345,7 +370,7 @@ function createApronAndBuildings(parent: THREE.Group, airport: AirportDefinition
   secondTaxiway.position.z = -35;
   parent.add(secondTaxiway);
 
-  const yellow = new THREE.MeshBasicMaterial({ color: 0xf0c75a });
+  const yellow = decalMaterial(0xf0c75a);
   const taxiLine = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 250), yellow);
   taxiLine.rotation.x = -Math.PI / 2;
   taxiLine.rotation.z = Math.PI / 2;
@@ -580,7 +605,7 @@ function createTerrainPatches(scene: THREE.Scene, origin: AirportDefinition, des
   for (let index = 0; index < 30; index += 1) {
     const patch = new THREE.Mesh(
       new THREE.PlaneGeometry(420 + (index % 4) * 160, 300 + (index % 3) * 140),
-      new THREE.MeshStandardMaterial({ color: patchColors[index % patchColors.length], roughness: 1 }),
+      surfaceOverlayMaterial(patchColors[index % patchColors.length], 1),
     );
     patch.rotation.x = -Math.PI / 2;
     patch.rotation.z = (index % 5) * 0.13;
