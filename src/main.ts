@@ -446,8 +446,8 @@ class OpenSkyApp {
             <button data-control="yaw-left" aria-label="Rudder left">L</button>
             <button data-control="yaw-right" aria-label="Rudder right">R</button>
           </div>
+          <button class="mobile-brake" data-control="brake">BRAKE</button>
           <div class="mobile-actions">
-            <button data-control="brake">BRAKE</button>
             <button id="mobile-camera">CAM</button>
             <button id="mobile-reset">RESET</button>
           </div>
