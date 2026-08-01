@@ -41,6 +41,7 @@ export class FlightGame {
   private arrived = false;
   private flightElapsed = 0;
   private touchdownSpeed = 0;
+  private touchdownVerticalSpeed = 0;
   private radioMessageTimer = 0;
   private readonly cameraModes: CameraMode[] = ['CHASE', 'COCKPIT', 'SIDE'];
   private readonly keyHandler: (event: KeyboardEvent) => void;
@@ -104,6 +105,7 @@ export class FlightGame {
     this.arrived = false;
     this.flightElapsed = 0;
     this.touchdownSpeed = 0;
+    this.touchdownVerticalSpeed = 0;
     this.input.setMobileThrottle(0);
     this.radio.reset();
     this.options.container.querySelector('#flight-complete')?.classList.remove('is-visible');
@@ -136,9 +138,13 @@ export class FlightGame {
     if (!this.paused) {
       const controls = this.input.update(this.physics.throttle);
       const wasOnGround = this.physics.onGround;
+      const verticalSpeedBeforeUpdate = this.physics.velocity.y;
       this.physics.update(dt, controls);
       this.flightElapsed += dt;
-      if (!wasOnGround && this.physics.onGround) this.touchdownSpeed = this.physics.velocity.length();
+      if (!wasOnGround && this.physics.onGround) {
+        this.touchdownSpeed = this.physics.velocity.length();
+        this.touchdownVerticalSpeed = Math.max(0, -verticalSpeedBeforeUpdate);
+      }
       this.syncModel();
       animateAircraftParts(this.model, dt * (9 + this.physics.throttle * 64));
       this.world.destinationBeacon.rotation.y += dt * 0.28;
@@ -193,6 +199,7 @@ export class FlightGame {
       this.camera.fov = 55;
     }
     this.camera.near = mode === 'COCKPIT' ? 0.08 : 0.35;
+    this.model.visible = mode !== 'COCKPIT';
     this.options.container.classList.toggle('is-cockpit-view', mode === 'COCKPIT');
     this.camera.position.lerp(this.cameraPosition, smoothing);
     if (dt >= 1) this.cameraLookAt.copy(this.cameraTarget);
@@ -226,20 +233,19 @@ export class FlightGame {
     this.setText('#destination-distance', `${(destinationDistance / 1000).toFixed(1)} KM`);
     this.setText('#destination-bearing', `${String(Math.round(destinationBearing)).padStart(3, '0')}°`);
     this.drawNavigationDisplay(telemetry, destinationDistance, relativeBearing);
-    this.setText(
-      '#flight-phase',
-      this.arrived
-        ? 'COMPLETE'
-        : insideDestinationAirfield && telemetry.onGround
-          ? 'BRAKING'
-          : destinationDistance < 1700
+    const flightPhase = this.arrived
+      ? 'COMPLETE'
+      : insideDestinationAirfield && telemetry.onGround
+        ? 'BRAKING'
+        : destinationDistance < 1700
           ? 'APPROACH'
           : telemetry.onGround
             ? telemetry.speed > 2
               ? 'GROUND ROLL'
               : 'READY'
-            : 'AIRBORNE',
-    );
+            : 'AIRBORNE';
+    this.setText('#flight-phase', flightPhase);
+    this.updateFlightCoach(telemetry, destinationDistance, insideDestinationAirfield);
 
     const throttleFill = this.options.container.querySelector<HTMLElement>('#throttle-fill');
     if (throttleFill) throttleFill.style.height = `${telemetry.throttle * 100}%`;
@@ -257,13 +263,55 @@ export class FlightGame {
 
   private completeFlight(telemetry: FlightTelemetry): void {
     const landingSpeed = this.touchdownSpeed || telemetry.speed;
+    const headingDifference = Math.abs((((telemetry.heading - this.destination.heading) % 360) + 540) % 360 - 180);
+    const runwayAlignment = Math.min(headingDifference, Math.abs(180 - headingDifference));
+    const grade =
+      this.touchdownVerticalSpeed < 1.8 && runwayAlignment < 8
+        ? 'S'
+        : this.touchdownVerticalSpeed < 3 && runwayAlignment < 15
+          ? 'A'
+          : this.touchdownVerticalSpeed < 4.8
+            ? 'B'
+            : 'C';
     this.setText('#complete-time', formatElapsedTime(this.flightElapsed));
     this.setText('#complete-landing-speed', `${Math.round(landingSpeed * 3.6)} KM/H`);
     this.setText('#complete-heading', `${String(Math.round(telemetry.heading)).padStart(3, '0')}°`);
+    this.setText('#complete-grade', grade);
     this.options.container.querySelector('#flight-complete')?.classList.add('is-visible');
     this.audio.update(0, 0);
     this.radio.announceArrival(this.flightElapsed);
     this.setPaused(true);
+  }
+
+  private updateFlightCoach(
+    telemetry: FlightTelemetry,
+    destinationDistance: number,
+    insideDestinationAirfield: boolean,
+  ): void {
+    let title = 'READY FOR DEPARTURE';
+    let instruction = 'Advance throttle smoothly to 100% and keep the aircraft centered.';
+    if (insideDestinationAirfield && telemetry.onGround) {
+      title = 'LANDING ROLL';
+      instruction = 'Hold SPACE or BRAKE, reduce throttle, and slow below 50 KM/H.';
+    } else if (telemetry.onGround && telemetry.speed > this.options.aircraft.rotateSpeed * 0.82) {
+      title = 'ROTATE';
+      instruction = 'Hold Pitch Up gently to lift off without stalling.';
+    } else if (telemetry.onGround && telemetry.speed > 2) {
+      title = 'BUILD AIRSPEED';
+      instruction = `Accelerate toward ${Math.round(this.options.aircraft.rotateSpeed * 3.6)} KM/H and steer with A / D.`;
+    } else if (!telemetry.onGround && telemetry.altitude < 120) {
+      title = 'INITIAL CLIMB';
+      instruction = 'Climb smoothly, keep the wings level, and follow the orange route pointer.';
+    } else if (destinationDistance < 1700) {
+      title = 'FINAL APPROACH';
+      instruction = 'Reduce throttle, align with the runway, and flare gently before touchdown.';
+    } else if (!telemetry.onGround) {
+      title = `NAVIGATE TO ${this.destination.code}`;
+      instruction = 'Use the radar and bearing pointer; begin a gradual descent before the airport.';
+    }
+    this.setText('#coach-title', title);
+    this.setText('#coach-text', instruction);
+    this.options.container.querySelector('#flight-coach')?.classList.toggle('is-complete', this.arrived);
   }
 
   private drawNavigationDisplay(telemetry: FlightTelemetry, destinationDistance: number, relativeBearing: number): void {

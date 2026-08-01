@@ -26,6 +26,8 @@ The project was visually inspired by the broad menu, hangar, and flight-view str
 - Procedural Web Audio engine tone with adjustable volume
 - Original dynamic ATC radio calls with departure, en-route, approach, and landing guidance
 - Animated bird flocks and lightweight passing air traffic around the route
+- Context-aware flight coach for takeoff, climb, navigation, approach, and braking
+- Landing grades based on touchdown smoothness and runway alignment
 - Pause, restart, reset, and main-menu flow
 
 ## Controls

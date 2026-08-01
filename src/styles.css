@@ -176,6 +176,66 @@ h1 em,
   background: var(--ink);
 }
 
+.flight-shell {
+  height: 100dvh;
+  min-height: 0;
+}
+
+.cockpit-interior {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.is-cockpit-view .cockpit-interior {
+  opacity: 1;
+}
+
+.cockpit-interior::before {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background:
+    linear-gradient(78deg, rgba(7, 15, 20, 0.96) 0 3.8%, transparent 4.3% 96%, rgba(7, 15, 20, 0.96) 96.5%),
+    linear-gradient(180deg, rgba(7, 15, 20, 0.94) 0 4.5%, transparent 10%);
+}
+
+.cockpit-interior::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 16%;
+  content: '';
+  background: linear-gradient(180deg, #17242a, #071016);
+  border-top: 2px solid rgba(156, 187, 192, 0.28);
+  clip-path: polygon(0 42%, 15% 8%, 85% 8%, 100% 42%, 100% 100%, 0 100%);
+}
+
+.cockpit-interior span,
+.cockpit-interior i {
+  position: absolute;
+  z-index: 1;
+  top: 4%;
+  bottom: 13%;
+  width: 14px;
+  background: linear-gradient(90deg, #061016, #34454b, #081217);
+  transform-origin: top;
+}
+
+.cockpit-interior span {
+  left: 4%;
+  transform: rotate(-4deg);
+}
+
+.cockpit-interior i {
+  right: 4%;
+  transform: rotate(4deg);
+}
+
 .scene-vignette {
   position: absolute;
   inset: 0;
@@ -1424,6 +1484,46 @@ kbd {
   letter-spacing: 0.025em;
 }
 
+.flight-coach {
+  position: absolute;
+  z-index: 8;
+  top: 112px;
+  left: 18px;
+  width: min(250px, 24vw);
+  padding: 12px 14px;
+  display: grid;
+  gap: 4px;
+  border-left: 2px solid var(--orange);
+  background: rgba(3, 15, 20, 0.72);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.flight-coach.is-complete {
+  opacity: 0;
+}
+
+.flight-coach span {
+  color: var(--orange);
+  font: 700 0.47rem var(--display);
+  letter-spacing: 0.12em;
+}
+
+.flight-coach strong {
+  font: 700 0.77rem var(--display);
+  letter-spacing: 0.05em;
+}
+
+.flight-coach small {
+  color: #a9bbc0;
+  font: 500 0.54rem/1.35 var(--display);
+}
+
+.orientation-hint {
+  display: none;
+}
+
 .mobile-controls {
   display: none;
 }
@@ -1524,7 +1624,7 @@ kbd {
 .complete-stats {
   margin-bottom: 20px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   border: 1px solid var(--line);
   background: rgba(2, 10, 15, 0.45);
 }
@@ -1687,6 +1787,19 @@ kbd {
 @media (pointer: coarse), (max-width: 760px) {
   .flight-shell {
     touch-action: none;
+  }
+
+  .flight-coach {
+    top: auto;
+    bottom: max(104px, calc(env(safe-area-inset-bottom) + 98px));
+    left: 50%;
+    width: min(240px, 44vw);
+    padding: 7px 9px;
+    transform: translateX(-50%);
+  }
+
+  .flight-coach small {
+    display: none;
   }
 
   .radio-message {
@@ -2020,6 +2133,53 @@ kbd {
 }
 
 @media (max-width: 520px) and (orientation: portrait) {
+  .orientation-hint {
+    position: absolute;
+    z-index: 24;
+    top: 112px;
+    left: 50%;
+    min-width: 220px;
+    padding: 9px 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transform: translateX(-50%);
+    border: 1px solid rgba(242, 169, 59, 0.42);
+    background: rgba(4, 15, 21, 0.86);
+    pointer-events: none;
+    animation: orientation-hint-fade 6s 1s forwards;
+  }
+
+  .orientation-hint b {
+    color: var(--orange);
+    font-size: 1.2rem;
+  }
+
+  .orientation-hint span {
+    display: grid;
+    font: 700 0.65rem var(--display);
+    letter-spacing: 0.08em;
+  }
+
+  .orientation-hint small {
+    color: var(--muted);
+    font: 500 0.48rem var(--display);
+    letter-spacing: 0.03em;
+  }
+
+  .complete-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .complete-stats > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .complete-stats > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+
   .hangar-shell {
     min-height: 620px;
   }
@@ -2142,6 +2302,11 @@ kbd {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+@keyframes orientation-hint-fade {
+  0%, 72% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
 }
 
 @media (prefers-reduced-motion: reduce) {

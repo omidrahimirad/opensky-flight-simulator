@@ -302,7 +302,7 @@ class OpenSkyApp {
             <input id="sensitivity-input" type="range" min="0.55" max="1.6" step="0.05" value="${this.settings.sensitivity}" />
           </label>
           <label class="setting-row">
-            <span><strong>Engine volume</strong><small>Procedurally generated engine audio</small></span>
+            <span><strong>Sound volume</strong><small>Engine, ATC radio, and ambient audio</small></span>
             <output id="volume-value">${Math.round(this.settings.volume * 100)}%</output>
             <input id="volume-input" type="range" min="0" max="1" step="0.05" value="${this.settings.volume}" />
           </label>
@@ -387,6 +387,7 @@ class OpenSkyApp {
       <main class="flight-shell">
         <canvas id="flight-canvas" class="scene-canvas" aria-label="3D flight simulator"></canvas>
         <div class="flight-shade"></div>
+        <div class="cockpit-interior" aria-hidden="true"><span></span><i></i></div>
         <header class="flight-topbar">
           <button class="glass-button pause-button" id="pause-button" aria-label="Pause flight">Ⅱ</button>
           <div class="flight-identity"><span>${aircraft.name}</span><small id="flight-phase">READY</small></div>
@@ -431,6 +432,11 @@ class OpenSkyApp {
           <div class="radio-message" id="radio-message" role="status" aria-live="polite">
             <span>ATC · LIVE</span><strong id="radio-text"></strong>
           </div>
+          <div class="flight-coach" id="flight-coach">
+            <span>FLIGHT COACH</span><strong id="coach-title">READY FOR DEPARTURE</strong>
+            <small id="coach-text">Advance throttle smoothly to 100% and keep the aircraft centered.</small>
+          </div>
+          <div class="orientation-hint" aria-hidden="true"><b>↻</b><span>ROTATE DEVICE<small>Landscape gives the best flight view</small></span></div>
         </section>
 
         <section class="mobile-controls" aria-label="Touch flight controls">
@@ -478,6 +484,7 @@ class OpenSkyApp {
               <div><small>FLIGHT TIME</small><strong id="complete-time">00:00</strong></div>
               <div><small>TOUCHDOWN</small><strong id="complete-landing-speed">-- KM/H</strong></div>
               <div><small>FINAL HDG</small><strong id="complete-heading">000°</strong></div>
+              <div><small>LANDING GRADE</small><strong id="complete-grade">A</strong></div>
             </div>
             <button class="select-button" id="complete-restart"><span>FLY AGAIN</span><b>RESTART →</b></button>
             <button class="pause-option" id="complete-main-menu">Main menu <b>⌂</b></button>
