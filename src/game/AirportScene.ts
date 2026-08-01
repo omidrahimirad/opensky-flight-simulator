@@ -481,7 +481,7 @@ function createApronAndBuildings(parent: THREE.Group, airport: AirportDefinition
 
   createGroundEquipment(parent, accent, isOrigin);
   createPerimeterFence(parent);
-  createCity(parent, airport, isOrigin ? 26 : 18);
+  createCity(parent, airport, isOrigin ? 96 : 80);
 }
 
 function createGroundEquipment(parent: THREE.Group, accent: number, isOrigin: boolean): void {
@@ -580,22 +580,78 @@ function createPerimeterFence(parent: THREE.Group): void {
 }
 
 function createCity(parent: THREE.Group, airport: AirportDefinition, count: number): void {
-  const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = standardMaterial(airport.climate === 'desert' ? 0xc89e72 : 0xaebbbc, 0.78);
-  const buildings = new THREE.InstancedMesh(geometry, material, count);
-  const dummy = new THREE.Object3D();
+  const palettes: Record<AirportDefinition['climate'], number[]> = {
+    alpine: [0xc8cfca, 0xaebbb7, 0xddd8ca, 0x8fa3a4],
+    coast: [0xe4dfd1, 0xb7cbd0, 0xd8b99d, 0x9fb4bd],
+    forest: [0xc4c7b7, 0xa8b4a4, 0xd7cbb4, 0x8fa29a],
+    desert: [0xd6ad7c, 0xc58f67, 0xe0c49b, 0xaf8061],
+  };
+  const palette = palettes[airport.climate];
+  const buildings = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), standardMaterial(0xffffff, 0.82), count);
+  const roofs = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), standardMaterial(0x56636a, 0.72, 0.16), count);
+  const facades = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 1, 1), standardMaterial(0x284653, 0.25, 0.2), count);
+  const buildingDummy = new THREE.Object3D();
+  const roofDummy = new THREE.Object3D();
+  const facadeDummy = new THREE.Object3D();
+  const rows = Math.ceil(count / 8);
   for (let index = 0; index < count; index += 1) {
-    const width = 16 + (index % 4) * 7;
-    const height = 9 + (index % 7) * 7;
-    const depth = 18 + (index % 3) * 7;
-    dummy.position.set(470 + (index % 6) * 48, height / 2, -100 + Math.floor(index / 6) * 62);
-    dummy.scale.set(width, height, depth);
-    dummy.updateMatrix();
-    buildings.setMatrixAt(index, dummy.matrix);
+    const side = index % 2 === 0 ? 1 : -1;
+    const sideIndex = Math.floor(index / 2);
+    const column = sideIndex % 4;
+    const row = Math.floor(sideIndex / 4);
+    const width = 34 + seededUnit(index * 7 + 3) * 34;
+    const depth = 38 + seededUnit(index * 11 + 5) * 46;
+    const isTower = sideIndex % 13 === 0 || (column >= 2 && sideIndex % 9 === 0);
+    const height = isTower ? 52 + seededUnit(index * 17 + 9) * 52 : 10 + seededUnit(index * 19 + 4) * (20 + column * 5);
+    const x = side * (660 + column * 145 + seededUnit(index * 23 + 6) * 38);
+    const z = (row - (rows - 1) / 2) * 150 + (seededUnit(index * 29 + 8) - 0.5) * 36;
+
+    buildingDummy.position.set(x, height / 2, z);
+    buildingDummy.scale.set(width, height, depth);
+    buildingDummy.rotation.y = (seededUnit(index * 31 + 7) - 0.5) * 0.08;
+    buildingDummy.updateMatrix();
+    buildings.setMatrixAt(index, buildingDummy.matrix);
+    buildings.setColorAt(index, new THREE.Color(palette[index % palette.length]));
+
+    roofDummy.position.set(x, height + 1.1, z);
+    roofDummy.scale.set(width * 0.82, 2.2, depth * 0.82);
+    roofDummy.rotation.copy(buildingDummy.rotation);
+    roofDummy.updateMatrix();
+    roofs.setMatrixAt(index, roofDummy.matrix);
+
+    facadeDummy.position.set(x - side * (width / 2 + 0.12), height * 0.58, z);
+    facadeDummy.scale.set(1, height * 0.46, depth * 0.68);
+    facadeDummy.rotation.copy(buildingDummy.rotation);
+    facadeDummy.updateMatrix();
+    facades.setMatrixAt(index, facadeDummy.matrix);
   }
   buildings.castShadow = true;
   buildings.receiveShadow = true;
-  parent.add(buildings);
+  roofs.castShadow = true;
+  facades.receiveShadow = true;
+  parent.add(buildings, roofs, facades);
+
+  const roadMaterial = surfaceOverlayMaterial(0x4d5556, 0.96);
+  for (const side of [-1, 1]) {
+    [590, 1160].forEach((offset) => {
+      const avenue = new THREE.Mesh(new THREE.PlaneGeometry(22, rows * 158), roadMaterial);
+      avenue.rotation.x = -Math.PI / 2;
+      avenue.position.set(side * offset, 0.018, 0);
+      avenue.receiveShadow = true;
+      parent.add(avenue);
+    });
+    for (let row = 0; row < rows; row += 2) {
+      const crossStreet = new THREE.Mesh(new THREE.PlaneGeometry(670, 14), roadMaterial);
+      crossStreet.rotation.x = -Math.PI / 2;
+      crossStreet.position.set(side * 875, 0.019, (row - (rows - 1) / 2) * 150 + 68);
+      crossStreet.receiveShadow = true;
+      parent.add(crossStreet);
+    }
+    const park = new THREE.Mesh(new THREE.CircleGeometry(92, 18), surfaceOverlayMaterial(airport.climate === 'desert' ? 0x9a9564 : 0x4f7953, 1));
+    park.rotation.x = -Math.PI / 2;
+    park.position.set(side * 1020, 0.022, rows * 54);
+    parent.add(park);
+  }
 }
 
 function createTerrainPatches(scene: THREE.Scene, origin: AirportDefinition, destination: AirportDefinition): void {
@@ -628,49 +684,132 @@ function createTerrainPatches(scene: THREE.Scene, origin: AirportDefinition, des
 function createLandscape(scene: THREE.Scene, origin: AirportDefinition, destination: AirportDefinition): void {
   const midpointX = (origin.x + destination.x) / 2;
   const midpointZ = (origin.z + destination.z) / 2;
-  const mountainMaterials = [standardMaterial(0x526e61, 1), standardMaterial(0x657765, 1), standardMaterial(0x7e7b68, 1)];
-  for (let index = 0; index < 44; index += 1) {
-    const angle = (index / 44) * Math.PI * 2;
-    const distance = 6600 + Math.sin(index * 2.17) * 650;
-    const height = 280 + (index % 8) * 78;
-    const mountain = new THREE.Mesh(
-      new THREE.ConeGeometry(290 + (index % 5) * 70, height, 7),
-      mountainMaterials[index % mountainMaterials.length],
+  const mountainColors = [0x425c52, 0x566b5d, 0x6c7162];
+  for (let paletteIndex = 0; paletteIndex < mountainColors.length; paletteIndex += 1) {
+    const count = 16;
+    const mountains = new THREE.InstancedMesh(
+      createMountainGeometry(13, paletteIndex * 41 + 5),
+      new THREE.MeshStandardMaterial({ color: mountainColors[paletteIndex], roughness: 1, flatShading: true }),
+      count,
     );
-    mountain.position.set(midpointX + Math.cos(angle) * distance, height / 2 - 15, midpointZ + Math.sin(angle) * distance);
-    mountain.rotation.y = index * 0.77;
-    scene.add(mountain);
+    const mountainDummy = new THREE.Object3D();
+    for (let instance = 0; instance < count; instance += 1) {
+      const index = paletteIndex + instance * mountainColors.length;
+      const angle = (index / (count * mountainColors.length)) * Math.PI * 2 + seededUnit(index * 5 + 2) * 0.09;
+      const distance = 5900 + seededUnit(index * 7 + 8) * 1700;
+      const radius = 250 + seededUnit(index * 11 + 3) * 310;
+      const height = 300 + seededUnit(index * 13 + 4) * 650;
+      mountainDummy.position.set(midpointX + Math.cos(angle) * distance, -18, midpointZ + Math.sin(angle) * distance);
+      mountainDummy.rotation.set(0, seededUnit(index * 17 + 9) * Math.PI * 2, 0);
+      mountainDummy.scale.set(radius, height, radius * (0.68 + seededUnit(index * 19 + 1) * 0.48));
+      mountainDummy.updateMatrix();
+      mountains.setMatrixAt(instance, mountainDummy.matrix);
+    }
+    mountains.receiveShadow = true;
+    scene.add(mountains);
   }
 
-  const crownGeometry = new THREE.ConeGeometry(4.6, 12, 7);
-  const treeGeometry = new THREE.BufferGeometry();
-  treeGeometry.copy(crownGeometry);
-  const trees = new THREE.InstancedMesh(treeGeometry, standardMaterial(0x3e6948, 1), 230);
-  const dummy = new THREE.Object3D();
+  const mobileScene = matchMedia('(pointer: coarse)').matches;
+  const desertRoute = origin.climate === 'desert' || destination.climate === 'desert';
+  const treeCount = Math.round((mobileScene ? 480 : 700) * (desertRoute ? 0.72 : 1));
+  const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.72, 6, 6);
+  const trunkMesh = new THREE.InstancedMesh(trunkGeometry, standardMaterial(0x554735, 1), treeCount);
+  const foliageMaterials = [standardMaterial(0x294e35, 1), standardMaterial(0x3b6742, 1), standardMaterial(0x56794b, 1)];
+  const foliageGeometries: THREE.BufferGeometry[] = [
+    new THREE.ConeGeometry(3.5, 10.5, 7),
+    new THREE.ConeGeometry(4.2, 9.4, 8),
+    new THREE.DodecahedronGeometry(4.2, 0),
+  ];
+  const foliageMeshes = foliageMaterials.map(
+    (material, index) => new THREE.InstancedMesh(foliageGeometries[index], material, Math.ceil(treeCount / 3)),
+  );
+  const foliageIndices = [0, 0, 0];
+  const trunkDummy = new THREE.Object3D();
+  const foliageDummy = new THREE.Object3D();
   const minX = Math.min(origin.x, destination.x) - 1800;
   const minZ = Math.min(origin.z, destination.z) - 1800;
   const spanX = Math.abs(destination.x - origin.x) + 3600;
   const spanZ = Math.abs(destination.z - origin.z) + 3600;
   let placed = 0;
   let candidate = 0;
-  while (placed < 230 && candidate < 2000) {
-    const x = minX + ((candidate * 733) % Math.max(spanX, 1));
-    const z = minZ + ((candidate * 991) % Math.max(spanZ, 1));
+  while (placed < treeCount && candidate < treeCount * 14) {
+    const cluster = candidate % 24;
+    const centerX = minX + seededUnit(cluster * 31 + 7) * spanX;
+    const centerZ = minZ + seededUnit(cluster * 43 + 5) * spanZ;
+    const spread = 80 + Math.sqrt(seededUnit(candidate * 47 + 11)) * 470;
+    const angle = seededUnit(candidate * 53 + 13) * Math.PI * 2;
+    const x = centerX + Math.cos(angle) * spread;
+    const z = centerZ + Math.sin(angle) * spread;
     candidate += 1;
     const isAirportClearZone = [origin, destination].some(
-      (airport) => Math.abs(x - airport.x) < 540 && Math.abs(z - airport.z) < 1250,
+      (airport) => Math.abs(x - airport.x) < 560 && Math.abs(z - airport.z) < 1320,
     );
     if (isAirportClearZone) continue;
-    const scale = 0.7 + (placed % 7) * 0.11;
-    dummy.position.set(x, 6 * scale, z);
-    dummy.scale.set(scale, scale, scale);
-    dummy.rotation.y = placed * 0.61;
-    dummy.updateMatrix();
-    trees.setMatrixAt(placed, dummy.matrix);
+    const scale = 0.72 + seededUnit(candidate * 59 + 17) * 0.76;
+    const paletteIndex = placed % foliageMeshes.length;
+    trunkDummy.position.set(x, 3 * scale, z);
+    trunkDummy.scale.set(scale, scale, scale);
+    trunkDummy.rotation.set(0, seededUnit(candidate * 61 + 19) * Math.PI * 2, 0);
+    trunkDummy.updateMatrix();
+    trunkMesh.setMatrixAt(placed, trunkDummy.matrix);
+
+    foliageDummy.position.set(x, (paletteIndex === 2 ? 8 : 7.4) * scale, z);
+    foliageDummy.scale.set(scale, scale, scale);
+    foliageDummy.rotation.copy(trunkDummy.rotation);
+    foliageDummy.updateMatrix();
+    foliageMeshes[paletteIndex].setMatrixAt(foliageIndices[paletteIndex], foliageDummy.matrix);
+    foliageIndices[paletteIndex] += 1;
     placed += 1;
   }
-  trees.castShadow = true;
-  scene.add(trees);
+  trunkMesh.count = placed;
+  trunkMesh.castShadow = true;
+  trunkMesh.receiveShadow = true;
+  foliageMeshes.forEach((foliage, index) => {
+    foliage.count = foliageIndices[index];
+    foliage.castShadow = true;
+    foliage.receiveShadow = true;
+  });
+  scene.add(trunkMesh, ...foliageMeshes);
+}
+
+function createMountainGeometry(segments: number, seed: number): THREE.BufferGeometry {
+  const ringHeights = [0, 0.2, 0.44, 0.67, 0.84];
+  const ringRadii = [1, 0.82, 0.57, 0.34, 0.16];
+  const positions: number[] = [];
+  const indices: number[] = [];
+  ringHeights.forEach((height, ring) => {
+    for (let segment = 0; segment < segments; segment += 1) {
+      const angle = (segment / segments) * Math.PI * 2;
+      const radialNoise = 0.78 + seededUnit(seed + ring * 97 + segment * 17) * 0.38;
+      const radius = ringRadii[ring] * radialNoise;
+      const verticalNoise = ring === 0 ? 0 : (seededUnit(seed + ring * 131 + segment * 23) - 0.5) * 0.055;
+      positions.push(Math.cos(angle) * radius, height + verticalNoise, Math.sin(angle) * radius);
+    }
+  });
+  for (let ring = 0; ring < ringHeights.length - 1; ring += 1) {
+    for (let segment = 0; segment < segments; segment += 1) {
+      const next = (segment + 1) % segments;
+      const currentRing = ring * segments;
+      const nextRing = (ring + 1) * segments;
+      indices.push(currentRing + segment, nextRing + next, currentRing + next, currentRing + segment, nextRing + segment, nextRing + next);
+    }
+  }
+  const peakIndex = positions.length / 3;
+  positions.push((seededUnit(seed * 7 + 2) - 0.5) * 0.16, 1, (seededUnit(seed * 11 + 4) - 0.5) * 0.16);
+  const topRing = (ringHeights.length - 1) * segments;
+  for (let segment = 0; segment < segments; segment += 1) {
+    indices.push(topRing + segment, peakIndex, topRing + ((segment + 1) % segments));
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function seededUnit(seed: number): number {
+  const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return value - Math.floor(value);
 }
 
 function createClouds(scene: THREE.Scene, origin: AirportDefinition, destination: AirportDefinition): THREE.Group {
