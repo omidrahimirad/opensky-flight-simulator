@@ -165,6 +165,26 @@ export function createAircraft(definition: AircraftDefinition): THREE.Group {
         ? createHorizon(definition, accent)
         : createSwift(definition, accent);
   aircraft.name = definition.name;
+  const wingTip = definition.id === 'horizon' ? 7.2 : definition.id === 'swift' ? 5.35 : 4.85;
+  const redLight = mesh(
+    new THREE.SphereGeometry(0.12, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xff3e45 }),
+    [-wingTip, 0.13, 0],
+  );
+  const greenLight = mesh(
+    new THREE.SphereGeometry(0.12, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0x43f5a0 }),
+    [wingTip, 0.13, 0],
+  );
+  const tailLight = mesh(
+    new THREE.SphereGeometry(0.1, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xf4fbff }),
+    [0, 0.45, definition.id === 'horizon' ? 6.2 : 4.8],
+  );
+  redLight.name = 'navigation-light';
+  greenLight.name = 'navigation-light';
+  tailLight.name = 'navigation-light';
+  aircraft.add(redLight, greenLight, tailLight);
   aircraft.scale.setScalar(definition.scale);
   aircraft.userData.definition = definition;
   return aircraft;
@@ -181,6 +201,9 @@ export function disposeObject(object: THREE.Object3D): void {
     if (!(child instanceof THREE.Mesh)) return;
     child.geometry.dispose();
     const materials = Array.isArray(child.material) ? child.material : [child.material];
-    materials.forEach((material) => material.dispose());
+    materials.forEach((material) => {
+      if ('map' in material && material.map instanceof THREE.Texture) material.map.dispose();
+      material.dispose();
+    });
   });
 }

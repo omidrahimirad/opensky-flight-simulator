@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import type { AircraftDefinition, CameraMode, Settings } from '../types';
+import { getAirport } from '../data/airports';
+import type { AircraftDefinition, AirportDefinition, CameraMode, RouteSelection, Settings } from '../types';
 import { animateAircraftParts, createAircraft, disposeObject } from '../scene/aircraftFactory';
-import { buildAirport } from './AirportScene';
+import { buildAirport, type ScenicWorld } from './AirportScene';
 import { EngineAudio } from './EngineAudio';
 import { FlightPhysics } from './FlightPhysics';
 import { InputController } from './InputController';
@@ -10,18 +11,22 @@ interface FlightGameOptions {
   container: HTMLElement;
   canvas: HTMLCanvasElement;
   aircraft: AircraftDefinition;
+  route: RouteSelection;
   settings: Settings;
   onPause: () => void;
 }
 
 export class FlightGame {
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.PerspectiveCamera(58, 1, 0.12, 7000);
+  private readonly camera = new THREE.PerspectiveCamera(58, 1, 0.12, 22000);
   private readonly renderer: THREE.WebGLRenderer;
   private readonly model: THREE.Group;
   private readonly physics: FlightPhysics;
   private readonly input: InputController;
   private readonly audio: EngineAudio;
+  private readonly origin: AirportDefinition;
+  private readonly destination: AirportDefinition;
+  private readonly world: ScenicWorld;
   private readonly resizeObserver: ResizeObserver;
   private readonly cameraTarget = new THREE.Vector3();
   private readonly cameraPosition = new THREE.Vector3();
@@ -30,6 +35,7 @@ export class FlightGame {
   private paused = false;
   private cameraIndex = 0;
   private hudAccumulator = 0;
+  private arrived = false;
   private readonly cameraModes: CameraMode[] = ['CHASE', 'COCKPIT', 'SIDE'];
   private readonly keyHandler: (event: KeyboardEvent) => void;
 
@@ -47,10 +53,12 @@ export class FlightGame {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
 
-    buildAirport(this.scene);
+    this.origin = getAirport(options.route.originId);
+    this.destination = getAirport(options.route.destinationId);
+    this.world = buildAirport(this.scene, this.origin, this.destination);
     this.model = createAircraft(options.aircraft);
     this.scene.add(this.model);
-    this.physics = new FlightPhysics(options.aircraft, options.settings.sensitivity);
+    this.physics = new FlightPhysics(options.aircraft, options.settings.sensitivity, this.origin);
     this.input = new InputController(options.container);
     this.audio = new EngineAudio(options.settings.volume);
 
@@ -78,10 +86,11 @@ export class FlightGame {
 
   reset(): void {
     this.physics.reset();
+    this.arrived = false;
     this.input.setMobileThrottle(0);
     this.syncModel();
     this.updateHud();
-    this.showStatus('Aircraft reset on runway 18');
+    this.showStatus(`Aircraft reset at ${this.origin.code}`);
   }
 
   changeCamera(): void {
@@ -96,7 +105,7 @@ export class FlightGame {
     window.removeEventListener('keydown', this.keyHandler);
     this.input.destroy();
     this.audio.destroy();
-    disposeObject(this.model);
+    disposeObject(this.scene);
     this.renderer.dispose();
   }
 
@@ -108,6 +117,9 @@ export class FlightGame {
       this.physics.update(dt, controls);
       this.syncModel();
       animateAircraftParts(this.model, dt * (9 + this.physics.throttle * 64));
+      this.world.destinationBeacon.rotation.y += dt * 0.28;
+      this.world.destinationBeacon.position.y = Math.sin(time * 0.0015) * 7;
+      this.world.cloudLayer.position.x = Math.sin(time * 0.00004) * 90;
       this.updateCamera(dt);
       this.audio.update(this.physics.throttle, this.physics.velocity.length());
       this.hudAccumulator += dt;
@@ -148,6 +160,14 @@ export class FlightGame {
 
   private updateHud(): void {
     const telemetry = this.physics.getTelemetry();
+    const deltaX = this.destination.x - this.physics.position.x;
+    const deltaZ = this.destination.z - this.physics.position.z;
+    const destinationDistance = Math.hypot(deltaX, deltaZ);
+    const destinationBearing = ((THREE.MathUtils.radToDeg(Math.atan2(deltaX, -deltaZ)) % 360) + 360) % 360;
+    const relativeBearing = ((((destinationBearing - telemetry.heading) % 360) + 540) % 360) - 180;
+    const wasArrived = this.arrived;
+    const justArrived = destinationDistance < 240 && telemetry.onGround && telemetry.speed < 10;
+    this.arrived ||= justArrived;
     this.setText('#hud-speed', String(Math.round(telemetry.speed * 3.6)));
     this.setText('#hud-altitude', String(Math.round(telemetry.altitude)));
     this.setText('#hud-heading', String(Math.round(telemetry.heading)).padStart(3, '0'));
@@ -155,7 +175,21 @@ export class FlightGame {
     this.setText('#hud-vspeed', `${telemetry.verticalSpeed >= 0 ? '+' : ''}${telemetry.verticalSpeed.toFixed(1)}`);
     this.setText('#hud-gforce', `${telemetry.gForce.toFixed(1)} G`);
     this.setText('#camera-label', this.cameraModes[this.cameraIndex]);
-    this.setText('#flight-phase', telemetry.onGround ? (telemetry.speed > 2 ? 'GROUND ROLL' : 'READY') : 'AIRBORNE');
+    this.setText('#destination-code', this.destination.code);
+    this.setText('#destination-distance', `${(destinationDistance / 1000).toFixed(1)} KM`);
+    this.setText('#destination-bearing', `${String(Math.round(destinationBearing)).padStart(3, '0')}°`);
+    this.setText(
+      '#flight-phase',
+      this.arrived
+        ? 'ARRIVED'
+        : destinationDistance < 1700
+          ? 'APPROACH'
+          : telemetry.onGround
+            ? telemetry.speed > 2
+              ? 'GROUND ROLL'
+              : 'READY'
+            : 'AIRBORNE',
+    );
 
     const throttleFill = this.options.container.querySelector<HTMLElement>('#throttle-fill');
     if (throttleFill) throttleFill.style.height = `${telemetry.throttle * 100}%`;
@@ -163,6 +197,12 @@ export class FlightGame {
     if (compass) compass.style.transform = `translateX(calc(-50% + ${-telemetry.heading * 1.15}px))`;
     const stall = this.options.container.querySelector<HTMLElement>('#stall-warning');
     stall?.classList.toggle('is-visible', telemetry.stall);
+    const pointer = this.options.container.querySelector<HTMLElement>('#destination-pointer');
+    if (pointer) pointer.style.transform = `rotate(${THREE.MathUtils.clamp(relativeBearing, -110, 110)}deg)`;
+    const routePanel = this.options.container.querySelector<HTMLElement>('.route-guidance');
+    routePanel?.classList.toggle('is-near', destinationDistance < 1700);
+    routePanel?.classList.toggle('is-arrived', this.arrived);
+    if (!wasArrived && this.arrived) this.showStatus(`Welcome to ${this.destination.name}`);
   }
 
   private setText(selector: string, value: string): void {

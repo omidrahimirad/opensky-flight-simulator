@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { AircraftDefinition, ControlState } from '../types';
+import type { AircraftDefinition, AirportDefinition, ControlState } from '../types';
 
 const FORWARD = new THREE.Vector3(0, 0, -1);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -31,18 +31,24 @@ export class FlightPhysics {
   constructor(
     readonly definition: AircraftDefinition,
     private readonly sensitivity: number,
+    private readonly origin: AirportDefinition,
   ) {
     this.reset();
   }
 
   reset(): void {
-    this.position.set(0, this.definition.gearHeight * this.definition.scale, 680);
+    this.yaw = -THREE.MathUtils.degToRad(this.origin.heading);
+    const runwayForward = FORWARD.clone().applyAxisAngle(UP, this.yaw);
+    this.position.set(
+      this.origin.x - runwayForward.x * 680,
+      this.definition.gearHeight * this.definition.scale,
+      this.origin.z - runwayForward.z * 680,
+    );
     this.velocity.set(0, 0, 0);
-    this.orientation.identity();
+    this.orientation.setFromEuler(new THREE.Euler(0, this.yaw, 0, 'YXZ'));
     this.throttle = 0;
     this.onGround = true;
     this.stall = false;
-    this.yaw = 0;
     this.pitch = 0;
     this.roll = 0;
   }
@@ -61,7 +67,7 @@ export class FlightPhysics {
   }
 
   getTelemetry(): FlightTelemetry {
-    const heading = ((THREE.MathUtils.radToDeg(this.yaw) % 360) + 360) % 360;
+    const heading = ((THREE.MathUtils.radToDeg(-this.yaw) % 360) + 360) % 360;
     return {
       altitude: Math.max(0, this.position.y - this.definition.gearHeight * this.definition.scale),
       speed: this.velocity.length(),

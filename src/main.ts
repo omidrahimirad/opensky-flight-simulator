@@ -1,9 +1,10 @@
 import './styles.css';
 import { AIRCRAFT, getAircraft } from './data/aircraft';
+import { AIRPORTS, getAirport, getRouteDistance } from './data/airports';
 import { FlightGame } from './game/FlightGame';
 import { HangarScene } from './scene/HangarScene';
-import { loadSelectedAircraft, loadSettings, saveSelectedAircraft, saveSettings } from './storage';
-import type { AircraftDefinition, Settings } from './types';
+import { loadRoute, loadSelectedAircraft, loadSettings, saveRoute, saveSelectedAircraft, saveSettings } from './storage';
+import type { AircraftDefinition, RouteSelection, Settings } from './types';
 
 class OpenSkyApp {
   private readonly root: HTMLElement;
@@ -11,6 +12,7 @@ class OpenSkyApp {
   private flight: FlightGame | null = null;
   private selectedIndex = 0;
   private settings: Settings = loadSettings();
+  private route: RouteSelection = loadRoute();
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -36,6 +38,8 @@ class OpenSkyApp {
     this.destroyScenes();
     const saved = loadSelectedAircraft();
     const activeAircraft = getAircraft(saved);
+    const origin = getAirport(this.route.originId);
+    const destination = getAirport(this.route.destinationId);
     this.root.innerHTML = `
       <main class="hangar-shell">
         <canvas id="hangar-canvas" class="scene-canvas" aria-hidden="true"></canvas>
@@ -64,8 +68,8 @@ class OpenSkyApp {
               <b>→</b>
             </button>
             <button class="menu-button" id="new-flight-button">
-              <span class="button-icon">＋</span>
-              <span><small>CHOOSE AN AIRCRAFT</small>New Flight</span>
+              <span class="button-icon">⌖</span>
+              <span><small>${origin.code} → ${destination.code}</small>New Flight</span>
               <b>→</b>
             </button>
             <button class="menu-button" id="aircraft-button">
@@ -93,14 +97,109 @@ class OpenSkyApp {
     this.hangar = new HangarScene(canvas, activeAircraft);
     this.requireElement('#continue-button').addEventListener('click', () => {
       if (saved) this.startFlight(activeAircraft);
-      else this.showAircraftSelection();
+      else this.showRoutePlanner();
     });
-    this.requireElement('#new-flight-button').addEventListener('click', () => this.showAircraftSelection());
-    this.requireElement('#aircraft-button').addEventListener('click', () => this.showAircraftSelection());
+    this.requireElement('#new-flight-button').addEventListener('click', () => this.showRoutePlanner());
+    this.requireElement('#aircraft-button').addEventListener('click', () => this.showAircraftSelection('menu'));
     this.requireElement('#settings-button').addEventListener('click', () => this.showSettings());
   }
 
-  private showAircraftSelection(): void {
+  private showRoutePlanner(): void {
+    const activeAircraft = AIRCRAFT[this.selectedIndex];
+    const airportOptions = (selectedId: string): string =>
+      AIRPORTS.map(
+        (airport) =>
+          `<option value="${airport.id}" ${airport.id === selectedId ? 'selected' : ''}>${airport.code} · ${airport.name}</option>`,
+      ).join('');
+    const origin = getAirport(this.route.originId);
+    const destination = getAirport(this.route.destinationId);
+    this.root.innerHTML = `
+      <main class="hangar-shell route-shell">
+        <canvas id="hangar-canvas" class="scene-canvas" aria-hidden="true"></canvas>
+        <div class="scene-vignette"></div>
+        <header class="topbar">
+          <button class="round-button" id="route-back-button" aria-label="Back to main menu">←</button>
+          <a class="brand" href="#" aria-label="OpenSky Flight">
+            <span class="brand-mark" aria-hidden="true"><i></i><b></b></span>
+            <span><strong>OpenSky</strong><small>FLIGHT</small></span>
+          </a>
+          <div class="fleet-count">FLIGHT <span>PLANNER</span></div>
+        </header>
+        <section class="route-layout" aria-labelledby="route-title">
+          <div class="route-heading">
+            <p class="eyebrow">Plan your journey</p>
+            <h1 id="route-title">Choose your <em>route.</em></h1>
+            <p>Depart from one regional airport and navigate to another. The destination beacon and HUD will guide you.</p>
+          </div>
+          <div class="route-map" aria-hidden="true">
+            <div class="map-grid"></div>
+            <span class="map-node origin-node"><i></i><b id="map-origin-code">${origin.code}</b></span>
+            <span class="map-route-line"><i>✈</i></span>
+            <span class="map-node destination-node"><i></i><b id="map-destination-code">${destination.code}</b></span>
+          </div>
+          <aside class="route-panel">
+            <div class="route-select-card">
+              <span class="route-index">01</span>
+              <label for="origin-airport">ORIGIN</label>
+              <select id="origin-airport">${airportOptions(origin.id)}</select>
+              <small id="origin-region">${origin.region}</small>
+            </div>
+            <button class="swap-route" id="swap-route" aria-label="Swap origin and destination">⇄</button>
+            <div class="route-select-card">
+              <span class="route-index">02</span>
+              <label for="destination-airport">DESTINATION</label>
+              <select id="destination-airport">${airportOptions(destination.id)}</select>
+              <small id="destination-region">${destination.region}</small>
+            </div>
+            <div class="route-summary">
+              <div><small>DISTANCE</small><strong id="route-distance">${(getRouteDistance(this.route) / 1000).toFixed(1)} KM</strong></div>
+              <div><small>EST. FLIGHT</small><strong id="route-duration">${Math.max(3, Math.round(getRouteDistance(this.route) / 1150))} MIN</strong></div>
+            </div>
+            <button class="select-button" id="confirm-route"><span>CONFIRM ROUTE</span><b>CHOOSE AIRCRAFT →</b></button>
+          </aside>
+        </section>
+      </main>
+    `;
+    this.hangar?.destroy();
+    this.hangar = new HangarScene(this.requireElement<HTMLCanvasElement>('#hangar-canvas'), activeAircraft);
+    const originSelect = this.requireElement<HTMLSelectElement>('#origin-airport');
+    const destinationSelect = this.requireElement<HTMLSelectElement>('#destination-airport');
+    const refreshRoute = (changed: 'origin' | 'destination'): void => {
+      if (originSelect.value === destinationSelect.value) {
+        const currentIndex = AIRPORTS.findIndex((airport) => airport.id === originSelect.value);
+        if (changed === 'origin') destinationSelect.value = AIRPORTS[(currentIndex + 1) % AIRPORTS.length].id;
+        else originSelect.value = AIRPORTS[(currentIndex + AIRPORTS.length - 1) % AIRPORTS.length].id;
+      }
+      this.route = {
+        originId: originSelect.value as RouteSelection['originId'],
+        destinationId: destinationSelect.value as RouteSelection['destinationId'],
+      };
+      const nextOrigin = getAirport(this.route.originId);
+      const nextDestination = getAirport(this.route.destinationId);
+      const distance = getRouteDistance(this.route);
+      this.setText('#map-origin-code', nextOrigin.code);
+      this.setText('#map-destination-code', nextDestination.code);
+      this.setText('#origin-region', nextOrigin.region);
+      this.setText('#destination-region', nextDestination.region);
+      this.setText('#route-distance', `${(distance / 1000).toFixed(1)} KM`);
+      this.setText('#route-duration', `${Math.max(3, Math.round(distance / 1150))} MIN`);
+    };
+    originSelect.addEventListener('change', () => refreshRoute('origin'));
+    destinationSelect.addEventListener('change', () => refreshRoute('destination'));
+    this.requireElement('#swap-route').addEventListener('click', () => {
+      const originValue = originSelect.value;
+      originSelect.value = destinationSelect.value;
+      destinationSelect.value = originValue;
+      refreshRoute('origin');
+    });
+    this.requireElement('#route-back-button').addEventListener('click', () => this.showMainMenu());
+    this.requireElement('#confirm-route').addEventListener('click', () => {
+      saveRoute(this.route);
+      this.showAircraftSelection('route');
+    });
+  }
+
+  private showAircraftSelection(backTarget: 'menu' | 'route' = 'menu'): void {
     const aircraft = AIRCRAFT[this.selectedIndex];
     this.root.innerHTML = `
       <main class="hangar-shell selection-shell">
@@ -122,6 +221,7 @@ class OpenSkyApp {
             <p class="eyebrow" id="aircraft-type">${aircraft.type}</p>
             <h1 id="aircraft-name">${aircraft.name}</h1>
             <p id="aircraft-tagline">${aircraft.tagline}</p>
+            <div class="selection-route-chip">${getAirport(this.route.originId).code} <b>→</b> ${getAirport(this.route.destinationId).code}</div>
           </div>
           <aside class="aircraft-card">
             <div class="card-kicker">AIRCRAFT PROFILE</div>
@@ -146,12 +246,15 @@ class OpenSkyApp {
     this.hangar?.destroy();
     this.hangar = new HangarScene(this.requireElement<HTMLCanvasElement>('#hangar-canvas'), aircraft);
     this.hangar.setMode('selection');
-    this.requireElement('#back-button').addEventListener('click', () => this.showMainMenu());
+    this.requireElement('#back-button').addEventListener('click', () =>
+      backTarget === 'route' ? this.showRoutePlanner() : this.showMainMenu(),
+    );
     this.requireElement('#previous-aircraft').addEventListener('click', () => this.stepAircraft(-1));
     this.requireElement('#next-aircraft').addEventListener('click', () => this.stepAircraft(1));
     this.requireElement('#select-aircraft').addEventListener('click', () => {
       const selected = AIRCRAFT[this.selectedIndex];
       saveSelectedAircraft(selected.id);
+      saveRoute(this.route);
       this.startFlight(selected);
     });
     this.bindSelectionSwipe();
@@ -233,6 +336,7 @@ class OpenSkyApp {
   }
 
   private startFlight(aircraft: AircraftDefinition): void {
+    saveRoute(this.route);
     this.hangar?.destroy();
     this.hangar = null;
     this.root.innerHTML = this.flightMarkup(aircraft);
@@ -241,6 +345,7 @@ class OpenSkyApp {
       container,
       canvas: this.requireElement<HTMLCanvasElement>('#flight-canvas'),
       aircraft,
+      route: this.route,
       settings: this.settings,
       onPause: () => this.togglePause(true),
     });
@@ -271,6 +376,8 @@ class OpenSkyApp {
   }
 
   private flightMarkup(aircraft: AircraftDefinition): string {
+    const origin = getAirport(this.route.originId);
+    const destination = getAirport(this.route.destinationId);
     return `
       <main class="flight-shell">
         <canvas id="flight-canvas" class="scene-canvas" aria-label="3D flight simulator"></canvas>
@@ -278,6 +385,10 @@ class OpenSkyApp {
         <header class="flight-topbar">
           <button class="glass-button pause-button" id="pause-button" aria-label="Pause flight">Ⅱ</button>
           <div class="flight-identity"><span>${aircraft.name}</span><small id="flight-phase">READY</small></div>
+          <div class="route-guidance">
+            <div class="route-codes"><span>${origin.code}</span><i>→</i><strong id="destination-code">${destination.code}</strong></div>
+            <div class="route-nav"><b id="destination-pointer">↑</b><span id="destination-distance">${(getRouteDistance(this.route) / 1000).toFixed(1)} KM</span><small id="destination-bearing">000°</small></div>
+          </div>
           <div class="top-controls">
             <button class="glass-button wide" id="camera-button"><span>CAMERA</span><b id="camera-label">CHASE</b></button>
             <button class="glass-button wide" id="reset-button"><span>RESET</span><b>R</b></button>
@@ -338,6 +449,7 @@ class OpenSkyApp {
             <p class="eyebrow">Flight paused</p>
             <h2>Take a breath.</h2>
             <p>Your aircraft is holding position.</p>
+            <div class="pause-route"><span>${origin.code}</span><i>→</i><strong>${destination.code}</strong><small>${origin.name} to ${destination.name}</small></div>
             <button class="select-button" id="resume-button"><span>RESUME</span><b>CONTINUE →</b></button>
             <button class="pause-option" id="restart-button">Restart flight <b>↻</b></button>
             <button class="pause-option" id="main-menu-button">Main menu <b>⌂</b></button>
@@ -346,7 +458,7 @@ class OpenSkyApp {
         <div class="flight-loading">
           <div class="loading-mark"><span></span><span></span><span></span></div>
           <strong>Rolling out ${aircraft.name}</strong>
-          <small>RUNWAY 18 · CLEAR FOR DEPARTURE</small>
+          <small>${origin.code} → ${destination.code} · CLEAR FOR DEPARTURE</small>
         </div>
       </main>
     `;

@@ -11,8 +11,11 @@ The project was visually inspired by the broad menu, hangar, and flight-view str
   - Skylark S2 light propeller aircraft
   - Horizon T8 twin-engine commuter aircraft
   - Swift J4 light business jet
-- Persistent aircraft selection and settings using `localStorage`
-- Procedural airport with runway lights, markings, hangars, terminal, tower, terrain, mountains, and trees
+- Four selectable regional airports with persistent origin and destination planning
+- In-flight destination bearing, distance, direction pointer, approach state, and arrival detection
+- Persistent route, aircraft selection, and settings using `localStorage`
+- Two fully modeled airports per flight with runway lights, signs, taxiways, hangars, terminals, towers, and destination beacon
+- Enhanced procedural scenery with a gradient sky, sun, clouds, terrain variation, coastlines, mountains, city buildings, trees, and aircraft navigation lights
 - Simplified force-based flight model with gravity, thrust, lift, drag, stalls, ground steering, braking, takeoff, and landing
 - Chase, cockpit-style, and side cameras
 - Live speed, altitude, throttle, heading, vertical speed, and load-factor instruments
@@ -91,7 +94,7 @@ The Vite base path is automatically set to `/opensky-flight-simulator/` inside G
 
 ```text
 src/
-  data/       Aircraft definitions and flight characteristics
+  data/       Aircraft, airport, route, and flight characteristics
   game/       Airport, audio, input, physics, and flight runtime
   scene/      Procedural aircraft and hangar rendering
   main.ts     Screen flow and interface wiring

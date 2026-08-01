@@ -1,4 +1,22 @@
 export type AircraftId = 'skylark' | 'horizon' | 'swift';
+export type AirportId = 'alpine' | 'coast' | 'pine' | 'mesa';
+
+export interface AirportDefinition {
+  id: AirportId;
+  code: string;
+  name: string;
+  region: string;
+  x: number;
+  z: number;
+  heading: number;
+  accent: number;
+  climate: 'alpine' | 'coast' | 'forest' | 'desert';
+}
+
+export interface RouteSelection {
+  originId: AirportId;
+  destinationId: AirportId;
+}
 
 export interface AircraftDefinition {
   id: AircraftId;
