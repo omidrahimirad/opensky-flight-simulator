@@ -11,6 +11,7 @@ The project was visually inspired by the broad menu, hangar, and flight-view str
   - Skylark S2 light propeller aircraft
   - Horizon T8 twin-engine commuter aircraft
   - Swift J4 light business jet
+- Refined low-poly aircraft with tapered wings, faceted fuselages, layered liveries, detailed cockpits, animated three-blade propellers, engine nacelles, navigation lights, and model-specific landing gear
 - Four selectable regional airports with persistent origin and destination planning
 - In-flight destination bearing, distance, direction pointer, approach state, and arrival detection
 - Persistent route, aircraft selection, and settings using `localStorage`
